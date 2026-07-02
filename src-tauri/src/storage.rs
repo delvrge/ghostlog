@@ -386,32 +386,30 @@ pub fn uninstall_git_hook(repo: &Path) -> Result<(), String> {
 }
 
 /// Entry point for `ghlg --ghlg-git-commit <repo>`, run by the post-commit
-/// hook as a short-lived subprocess. Reads the latest commit subject via
-/// `git log` and writes it as an entry — no app instance needs to be
-/// running for git-commit capture to work.
-/// STUB: the summary is placeholder text; real diff summarization routes
-/// through ai-stub.ts (Ollama) once wired into the review window flow.
-pub fn capture_from_git_commit(repo: &Path) -> Result<(), String> {
+/// hook as a short-lived subprocess — there is no webview here, so the AI
+/// call happens directly through ai.rs rather than ai-stub.ts. Reads the
+/// latest commit subject + diff via `git log`/`git show` and summarizes it
+/// with the local model configured in Settings > AI provider (falls back
+/// to a mock draft if none is configured or the call fails).
+pub async fn capture_from_git_commit(repo: &Path) -> Result<(), String> {
     let project = project_name(repo)?;
-    let subject = std::process::Command::new("git")
-        .args(["log", "-1", "--pretty=%s"])
+    let subject = run_git(repo, &["log", "-1", "--pretty=%s"])?;
+    let stat = run_git(repo, &["show", "--stat", "--pretty=", "HEAD"]).unwrap_or_default();
+    let note = if subject.is_empty() { "git commit".to_string() } else { subject };
+
+    let draft = crate::ai::summarize_capture(&note, Some(&stat)).await;
+    let (date, session_id) = create_session(&project)?;
+    write_entry(&project, &date, &session_id, &draft.tag, &draft.title, &draft.summary)?;
+    Ok(())
+}
+
+fn run_git(repo: &Path, args: &[&str]) -> Result<String, String> {
+    std::process::Command::new("git")
+        .args(args)
         .current_dir(repo)
         .output()
         .map_err(|e| e.to_string())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())?;
-    let title = if subject.is_empty() { "git commit".to_string() } else { subject };
-
-    let (date, session_id) = create_session(&project)?;
-    write_entry(
-        &project,
-        &date,
-        &session_id,
-        "update",
-        &title,
-        "Captured from git commit hook. Placeholder summary — will be replaced \
-         by a local-model diff summary once ai-stub.ts is wired to a real model.",
-    )?;
-    Ok(())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
 }
 
 fn find_entry(

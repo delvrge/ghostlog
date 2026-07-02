@@ -2,6 +2,7 @@
 //! Zero network ports by design — all frontend communication is Tauri IPC,
 //! all extension communication will be Native Messaging (stdio).
 
+mod ai;
 mod commands;
 mod state;
 mod storage;
@@ -12,9 +13,15 @@ use state::AppState;
 use std::path::Path;
 
 /// Entry point for the `--ghlg-git-commit <repo>` CLI mode (see main.rs).
+/// Runs on a small dedicated runtime since this path is a bare subprocess
+/// with no Tauri/async runtime already in place.
 pub fn capture_from_git_commit_cli(repo: &Path) -> Result<(), String> {
     let canonical = repo.canonicalize().map_err(|e| e.to_string())?;
-    storage::capture_from_git_commit(&canonical)
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| e.to_string())?
+        .block_on(storage::capture_from_git_commit(&canonical))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -58,6 +65,7 @@ pub fn run() {
             commands::get_extension_status,
             commands::get_ai_config,
             commands::set_ai_config,
+            commands::ai_compile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

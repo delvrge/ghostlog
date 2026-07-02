@@ -1,17 +1,21 @@
 /**
- * ai-stub.ts — the ONLY place AI calls live.
+ * ai-stub.ts — the ONLY frontend place AI calls live.
  *
- * STUB: every function here returns realistic mock data. Replace with real
- * local model calls (Ollama, or any endpoint the user configures in
- * Settings → AI Provider, read via get_ai_config) once a model is selected.
- * Swapping in the real implementation must touch this file only — nothing
- * else in the app may talk to a model directly.
+ * compileEntries is wired to a real local model: it calls the `ai_compile`
+ * Tauri command, which talks to a local llama.cpp server (`llama-server`,
+ * OpenAI-compatible API) at the endpoint configured in Settings > AI
+ * provider. If no endpoint is set, or the call fails, the Rust side
+ * returns a clearly-labeled mock document instead — this file never needs
+ * its own fallback logic.
  *
- * Settings already lets the user store an endpoint + model (free tier:
- * empty by default, bring-your-own; Pro: presets). That config is inert
- * until this file is wired to actually call it — storing it is not the
- * same as using it.
+ * summarizeDiff/summarizeScreenshot below are still pure stubs: nothing in
+ * the frontend calls them yet (manual capture and git-commit capture run
+ * entirely in Rust via src-tauri/src/ai.rs, since the git-hook path has no
+ * webview at all; screenshot capture doesn't exist until the browser
+ * extension, step 7). They're kept here as the frontend swap point for
+ * whenever a UI-driven flow needs its own diff/screenshot summary.
  */
+import { invoke } from "@tauri-apps/api/core";
 
 export interface EntryDraft {
   /** e.g. "bugfix" | "update" | "feature" — auto-tag guess. */
@@ -20,7 +24,7 @@ export interface EntryDraft {
   summary: string;
 }
 
-/** STUB: replace with real local model call (Ollama) once model is selected. */
+/** STUB: replace with a real call (see src-tauri/src/ai.rs) once a UI flow needs it. */
 export async function summarizeDiff(diff: string): Promise<EntryDraft> {
   void diff;
   return {
@@ -32,7 +36,7 @@ export async function summarizeDiff(diff: string): Promise<EntryDraft> {
   };
 }
 
-/** STUB: replace with real local model call (Ollama) once model is selected. */
+/** STUB: replace with a real call (see src-tauri/src/ai.rs) once a UI flow needs it. */
 export async function summarizeScreenshot(pngPath: string): Promise<EntryDraft> {
   void pngPath;
   return {
@@ -42,14 +46,7 @@ export async function summarizeScreenshot(pngPath: string): Promise<EntryDraft> 
   };
 }
 
-/** STUB: replace with real local model call (Ollama) once model is selected. */
+/** Real: routes to the local model server via src-tauri/src/ai.rs (mock fallback lives there). */
 export async function compileEntries(entryMarkdown: string[]): Promise<string> {
-  return [
-    "# Session postmortem (mock)",
-    "",
-    `Compiled ${entryMarkdown.length} entries.`,
-    "",
-    "## What happened",
-    "Mock compiled narrative goes here once a local model is wired in.",
-  ].join("\n");
+  return invoke("ai_compile", { entries: entryMarkdown });
 }

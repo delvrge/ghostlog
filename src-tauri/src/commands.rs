@@ -68,11 +68,12 @@ pub fn get_watched_folder(state: State<AppState>) -> Option<String> {
 }
 
 /// Manual "Log this now" trigger — writes a real entry file into the
-/// current session (creating one if needed).
-/// STUB: title/summary are placeholder text; the real flow will feed the
-/// note + recent git diff/log through the local model (ai-stub → Ollama).
+/// current session (creating one if needed). Title/tag/summary come from
+/// the local model configured in Settings > AI provider, via ai.rs; if
+/// none is configured (or the call fails), a clearly-labeled mock draft is
+/// used instead — capture always succeeds either way.
 #[tauri::command]
-pub fn manual_capture(app: AppHandle, note: Option<String>) -> Result<storage::SessionEntry, String> {
+pub async fn manual_capture(app: AppHandle, note: Option<String>) -> Result<storage::SessionEntry, String> {
     let state = app.state::<AppState>();
     let project = {
         let watched = state.watched_path.lock().unwrap();
@@ -95,15 +96,9 @@ pub fn manual_capture(app: AppHandle, note: Option<String>) -> Result<storage::S
     };
 
     let note_text = note.unwrap_or_else(|| "manual capture".to_string());
-    let entry = storage::write_entry(
-        &project,
-        &date,
-        &session_id,
-        "update",
-        &note_text,
-        "Placeholder summary — recent git diff/log context will be summarized \
-         by the local model here once one is wired in.",
-    )?;
+    let draft = crate::ai::summarize_capture(&note_text, None).await;
+    let entry =
+        storage::write_entry(&project, &date, &session_id, &draft.tag, &draft.title, &draft.summary)?;
     watcher::record_event(&app, "manual", note_text);
     Ok(entry)
 }
@@ -206,4 +201,12 @@ pub fn get_ai_config() -> storage::AiConfig {
 #[tauri::command]
 pub fn set_ai_config(endpoint: String, model: String) -> Result<(), String> {
     storage::save_ai_config(&storage::AiConfig { endpoint, model })
+}
+
+/// Backs ai-stub.ts's compileEntries — the UI-driven path always has a
+/// webview, but we still keep the real call in ai.rs (single source of
+/// truth for backend model calls, shared with the CLI git-hook path).
+#[tauri::command]
+pub async fn ai_compile(entries: Vec<String>) -> String {
+    crate::ai::compile_document(&entries).await
 }

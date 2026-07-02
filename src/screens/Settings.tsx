@@ -147,21 +147,21 @@ export default function Settings({
         <div className="bg-panel border border-edge rounded-lg px-4 py-4 space-y-3">
           <p className="text-xs text-fg-muted">
             Ghostlog summarizes captures with a model you point it at — nothing is sent anywhere until you set this.
-            Works with any local or self-hosted OpenAI/Ollama-compatible endpoint. Leave blank to keep using mock
-            summaries.
+            Works with a local llama.cpp server (<span className="font-mono text-fg">llama-server</span>, OpenAI-compatible
+            API). Leave blank to keep using mock summaries.
           </p>
           <div className="grid grid-cols-[1fr_auto] gap-3">
             <input
               value={aiEndpoint}
               onChange={(e) => setAiEndpoint(e.target.value)}
-              placeholder="http://localhost:11434"
+              placeholder="http://localhost:8080"
               className="bg-ink border border-edge rounded-md px-3 py-2 text-sm font-mono placeholder:text-fg-faint focus:outline-none focus:border-accent"
             />
             <input
               value={aiModel}
               onChange={(e) => setAiModel(e.target.value)}
-              placeholder="model name"
-              className="w-40 bg-ink border border-edge rounded-md px-3 py-2 text-sm font-mono placeholder:text-fg-faint focus:outline-none focus:border-accent"
+              placeholder="model label (optional)"
+              className="w-48 bg-ink border border-edge rounded-md px-3 py-2 text-sm font-mono placeholder:text-fg-faint focus:outline-none focus:border-accent"
             />
           </div>
           <button
