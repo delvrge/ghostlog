@@ -50,6 +50,7 @@ export default function Settings({
 }) {
   const [manualTrigger, setManualTrigger] = useState(true);
   const [gitHook, setGitHook] = useState(false);
+  const [shellHook, setShellHook] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [extensionStatus, setExtensionStatus] = useState<"connected" | "disconnected">("disconnected");
   const [nativeHostInstalled, setNativeHostInstalled] = useState(false);
@@ -64,6 +65,7 @@ export default function Settings({
 
   useEffect(() => {
     invoke<boolean>("is_git_hook_enabled").then(setGitHook).catch(() => {});
+    invoke<boolean>("is_shell_hook_installed").then(setShellHook).catch(() => {});
     autostartEnabled().then(setLaunchAtLogin).catch(() => {});
     invoke<string>("get_extension_status").then((s) => setExtensionStatus(s as "connected" | "disconnected"));
     invoke<boolean>("is_native_host_installed").then(setNativeHostInstalled).catch(() => {});
@@ -115,6 +117,18 @@ export default function Settings({
       if (nativeHostInstalled) await invoke("uninstall_native_host");
       else await invoke("install_native_host");
       setNativeHostInstalled(!nativeHostInstalled);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function toggleShellHook() {
+    setError(null);
+    const next = !shellHook;
+    try {
+      if (next) await invoke("install_shell_hook");
+      else await invoke("uninstall_shell_hook");
+      setShellHook(next);
     } catch (e) {
       setError(String(e));
     }
@@ -174,8 +188,11 @@ export default function Settings({
           <Row title="Git commit trigger" description="Capture automatically on every commit in this project">
             <Toggle checked={gitHook} onChange={toggleGitHook} />
           </Row>
-          <Row title="Automatic error detection" description="Coming soon">
-            <Toggle checked={false} onChange={() => {}} disabled />
+          <Row
+            title="Shell error trigger"
+            description="Capture automatically when a terminal command fails — works no matter who runs the command, you or an AI tool"
+          >
+            <Toggle checked={shellHook} onChange={toggleShellHook} />
           </Row>
         </div>
       </section>

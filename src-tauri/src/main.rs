@@ -24,6 +24,15 @@ fn main() {
             }
             return;
         }
+        if flag == "--ghlg-shell-error" {
+            let command = args.next().unwrap_or_default();
+            let exit_code = args.next().unwrap_or_default();
+            if let Err(e) = ghlg_lib::capture_from_shell_error_cli(&command, &exit_code) {
+                eprintln!("GHLG shell-error capture failed: {e}");
+                std::process::exit(1);
+            }
+            return;
+        }
     }
 
     ghlg_lib::run()

@@ -25,6 +25,16 @@ pub fn capture_from_git_commit_cli(repo: &Path) -> Result<(), String> {
         .block_on(storage::capture_from_git_commit(&canonical))
 }
 
+/// Entry point for the `--ghlg-shell-error <command> <exit_code>` CLI mode
+/// (see main.rs), invoked by the shell hook installed via Settings.
+pub fn capture_from_shell_error_cli(command: &str, exit_code: &str) -> Result<(), String> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| e.to_string())?
+        .block_on(storage::capture_from_shell_error(command, exit_code))
+}
+
 /// Entry point for `ghlg --ghlg-native-host` (see main.rs). Chrome launches
 /// this as a short-lived subprocess per `connectNative()` call and speaks
 /// its Native Messaging stdio protocol: each message is a 4-byte
@@ -110,6 +120,9 @@ pub fn run() {
             commands::is_native_host_installed,
             commands::install_native_host,
             commands::uninstall_native_host,
+            commands::is_shell_hook_installed,
+            commands::install_shell_hook,
+            commands::uninstall_shell_hook,
             commands::get_ai_config,
             commands::set_ai_config,
             commands::ai_compile,

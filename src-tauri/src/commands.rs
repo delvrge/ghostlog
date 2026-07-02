@@ -210,6 +210,25 @@ pub fn uninstall_native_host() -> Result<(), String> {
     storage::uninstall_native_host()
 }
 
+/// "Guaranteed" auto-capture trigger: installs a small marked block into
+/// the user's ~/.zshrc that fires on any nonzero-exit command, regardless
+/// of whether a human or an AI coding tool ran it.
+#[tauri::command]
+pub fn is_shell_hook_installed() -> bool {
+    storage::is_shell_hook_installed()
+}
+
+#[tauri::command]
+pub fn install_shell_hook() -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    storage::install_shell_hook(&exe)
+}
+
+#[tauri::command]
+pub fn uninstall_shell_hook() -> Result<(), String> {
+    storage::uninstall_shell_hook()
+}
+
 // ---- Settings: AI provider ----
 // Free tier ships with no preset — the user points Ghostlog at their own
 // local/self-hosted endpoint. ai-stub.ts reads this to decide whether to

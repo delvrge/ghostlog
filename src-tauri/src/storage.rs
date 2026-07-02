@@ -557,6 +557,97 @@ pub fn uninstall_native_host() -> Result<(), String> {
     Ok(())
 }
 
+// ---- Shell error trigger ----
+// A "guaranteed" auto-capture trigger that doesn't depend on remembering to
+// type a wrapper command: a small marked block in the user's shell startup
+// file (~/.zshrc) runs on EVERY command, regardless of whether a human or
+// an AI coding tool typed it. On a nonzero exit code it shells out to the
+// GHLG binary in the background, same short-lived-subprocess pattern as the
+// git post-commit hook. v1 signal is just "the last command failed" (exit
+// code != 0) — no output-pattern scanning, which would be far more fragile.
+// Over-capturing is fine: the Curate screen already exists for discarding
+// low-value entries.
+
+const SHELL_HOOK_MARKER: &str = "# ghlg-managed-shell-hook";
+
+fn shell_rc_path() -> Result<PathBuf, String> {
+    Ok(dirs::home_dir().ok_or("Cannot resolve home directory")?.join(".zshrc"))
+}
+
+pub fn is_shell_hook_installed() -> bool {
+    shell_rc_path()
+        .ok()
+        .and_then(|p| fs::read_to_string(p).ok())
+        .is_some_and(|s| s.contains(SHELL_HOOK_MARKER))
+}
+
+pub fn install_shell_hook(exe_path: &Path) -> Result<(), String> {
+    if is_shell_hook_installed() {
+        return Ok(());
+    }
+    let path = shell_rc_path()?;
+    let existing = fs::read_to_string(&path).unwrap_or_default();
+    let exe = exe_path.display();
+    let block = format!(
+        "\n{SHELL_HOOK_MARKER}\n\
+ghlg_precmd() {{\n\
+  local exit_code=$?\n\
+  if [ $exit_code -ne 0 ]; then\n\
+    \"{exe}\" --ghlg-shell-error \"$(fc -ln -1)\" \"$exit_code\" &>/dev/null &\n\
+  fi\n\
+}}\n\
+autoload -Uz add-zsh-hook\n\
+add-zsh-hook precmd ghlg_precmd\n\
+{SHELL_HOOK_MARKER}\n"
+    );
+    fs::write(&path, existing + &block).map_err(|e| e.to_string())
+}
+
+/// Only removes the block GHLG installed (between its two matching marker
+/// lines) — never touches anything else the user has in their shell config.
+pub fn uninstall_shell_hook() -> Result<(), String> {
+    let path = shell_rc_path()?;
+    let Ok(content) = fs::read_to_string(&path) else { return Ok(()) };
+    let markers: Vec<usize> = content
+        .match_indices(SHELL_HOOK_MARKER)
+        .map(|(i, _)| i)
+        .collect();
+    if markers.len() < 2 {
+        return Ok(());
+    }
+    // Trim the exact leading/trailing newline install() added around the
+    // block, so uninstall restores the file byte-for-byte instead of
+    // leaving stray blank lines behind.
+    let mut start = markers[0];
+    if start > 0 && content.as_bytes()[start - 1] == b'\n' {
+        start -= 1;
+    }
+    let mut end = markers[1] + SHELL_HOOK_MARKER.len();
+    if content.as_bytes().get(end) == Some(&b'\n') {
+        end += 1;
+    }
+    let mut cleaned = content[..start].to_string();
+    cleaned.push_str(&content[end..]);
+    fs::write(&path, cleaned).map_err(|e| e.to_string())
+}
+
+/// Entry point for `ghlg --ghlg-shell-error <command> <exit_code>`, invoked
+/// by the shell hook above as a short-lived subprocess. Same reasoning as
+/// `capture_from_native_host`: no repo argument available, so the watched
+/// folder comes from the persisted config.
+pub async fn capture_from_shell_error(command: &str, exit_code: &str) -> Result<(), String> {
+    let repo = load_watched_folder().ok_or("No watched folder configured")?;
+    let project = project_name(&repo)?;
+    let diff = working_tree_diff(&repo);
+    let note = format!("shell command failed (exit {exit_code}): {command}");
+    let diff_context = if diff.trim().is_empty() { None } else { Some(diff.as_str()) };
+
+    let draft = crate::ai::summarize_capture(&note, diff_context).await;
+    let (date, session_id) = create_session(&project)?;
+    write_entry(&project, &date, &session_id, &draft.tag, &draft.title, &draft.summary)?;
+    Ok(())
+}
+
 fn run_git(repo: &Path, args: &[&str]) -> Result<String, String> {
     std::process::Command::new("git")
         .args(args)
