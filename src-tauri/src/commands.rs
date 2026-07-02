@@ -157,3 +157,37 @@ pub fn delete_entry(
 ) -> Result<(), String> {
     storage::delete_entry(&current_project(&state)?, &date, &session_id, &entry_id)
 }
+
+// ---- Settings: git-commit trigger ----
+
+fn watched_path(state: &State<AppState>) -> Result<std::path::PathBuf, String> {
+    state
+        .watched_path
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or_else(|| "No watched folder configured".to_string())
+}
+
+#[tauri::command]
+pub fn is_git_hook_enabled(state: State<AppState>) -> Result<bool, String> {
+    Ok(storage::is_git_hook_installed(&watched_path(&state)?))
+}
+
+#[tauri::command]
+pub fn set_git_hook_enabled(state: State<AppState>, enabled: bool) -> Result<(), String> {
+    let repo = watched_path(&state)?;
+    if enabled {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        storage::install_git_hook(&repo, &exe)
+    } else {
+        storage::uninstall_git_hook(&repo)
+    }
+}
+
+/// Extension connection status. STUB shape until Native Messaging (step 8)
+/// exists — always reports disconnected for now.
+#[tauri::command]
+pub fn get_extension_status() -> &'static str {
+    "disconnected"
+}

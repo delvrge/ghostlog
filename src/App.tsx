@@ -11,6 +11,7 @@ import Archive from "./screens/Archive";
 import SessionDetail from "./screens/SessionDetail";
 import Curate from "./screens/Curate";
 import Compile from "./screens/Compile";
+import Settings from "./screens/Settings";
 
 type View =
   | { name: "home" }
@@ -104,7 +105,7 @@ export default function App() {
           />
         )}
         {view.name === "settings" && (
-          <p className="text-sm text-fg-faint">Settings screen lands in step 6.</p>
+          <Settings watchedFolder={watchedFolder} onChangeFolder={() => setChangingFolder(true)} />
         )}
       </main>
     </div>

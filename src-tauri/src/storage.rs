@@ -305,6 +305,76 @@ pub fn delete_entry(
     Ok(())
 }
 
+// ---- Git commit hook ----
+// The hook script shells out to the GHLG binary itself in a lightweight CLI
+// mode (see main.rs), so a capture can be written even when the review
+// window / tray process isn't running. Pure filesystem + git — no network.
+
+const HOOK_MARKER: &str = "# ghlg-managed-hook";
+
+fn hook_path(repo: &Path) -> PathBuf {
+    repo.join(".git").join("hooks").join("post-commit")
+}
+
+pub fn is_git_hook_installed(repo: &Path) -> bool {
+    fs::read_to_string(hook_path(repo)).is_ok_and(|s| s.contains(HOOK_MARKER))
+}
+
+pub fn install_git_hook(repo: &Path, exe_path: &Path) -> Result<(), String> {
+    let path = hook_path(repo);
+    let script = format!(
+        "#!/bin/sh\n{HOOK_MARKER}\n\"{}\" --ghlg-git-commit \"$(pwd)\" &\n",
+        exe_path.display()
+    );
+    fs::write(&path, script).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&path).map_err(|e| e.to_string())?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&path, perms).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Only removes the hook if GHLG installed it — never touches a hook a
+/// developer wrote themselves.
+pub fn uninstall_git_hook(repo: &Path) -> Result<(), String> {
+    if is_git_hook_installed(repo) {
+        fs::remove_file(hook_path(repo)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Entry point for `ghlg --ghlg-git-commit <repo>`, run by the post-commit
+/// hook as a short-lived subprocess. Reads the latest commit subject via
+/// `git log` and writes it as an entry — no app instance needs to be
+/// running for git-commit capture to work.
+/// STUB: the summary is placeholder text; real diff summarization routes
+/// through ai-stub.ts (Ollama) once wired into the review window flow.
+pub fn capture_from_git_commit(repo: &Path) -> Result<(), String> {
+    let project = project_name(repo)?;
+    let subject = std::process::Command::new("git")
+        .args(["log", "-1", "--pretty=%s"])
+        .current_dir(repo)
+        .output()
+        .map_err(|e| e.to_string())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())?;
+    let title = if subject.is_empty() { "git commit".to_string() } else { subject };
+
+    let (date, session_id) = create_session(&project)?;
+    write_entry(
+        &project,
+        &date,
+        &session_id,
+        "update",
+        &title,
+        "Captured from git commit hook. Placeholder summary — will be replaced \
+         by a local-model diff summary once ai-stub.ts is wired to a real model.",
+    )?;
+    Ok(())
+}
+
 fn find_entry(
     project: &str,
     date: &str,
