@@ -1,0 +1,4 @@
+[build]
+# Build on the internal disk: the SSD's filesystem grows macOS "._*"
+# AppleDouble files inside target/, which breaks tauri's build script.
+target-dir = "/Users/mac/.cargo-target/ghlg"
