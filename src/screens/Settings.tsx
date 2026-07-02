@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
+import { open } from "@tauri-apps/plugin-dialog";
 import { isEnabled as autostartEnabled, enable as autostartEnable, disable as autostartDisable } from "@tauri-apps/plugin-autostart";
 
 function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
@@ -58,6 +59,8 @@ export default function Settings({
   const [aiModel, setAiModel] = useState("");
   const [aiSaved, setAiSaved] = useState(false);
 
+  const [outputFolder, setOutputFolder] = useState<string | null>(null);
+
   useEffect(() => {
     invoke<boolean>("is_git_hook_enabled").then(setGitHook).catch(() => {});
     autostartEnabled().then(setLaunchAtLogin).catch(() => {});
@@ -67,7 +70,20 @@ export default function Settings({
       setAiEndpoint(cfg.endpoint);
       setAiModel(cfg.model);
     });
+    invoke<string | null>("get_output_folder").then(setOutputFolder);
   }, []);
+
+  async function chooseOutputFolder() {
+    setError(null);
+    const selection = await open({ directory: true, multiple: false, title: "Choose where Ghostlog exports documents" });
+    if (typeof selection !== "string") return;
+    try {
+      await invoke("set_output_folder", { path: selection });
+      setOutputFolder(selection);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
 
   async function saveAiConfig() {
     setError(null);
@@ -115,6 +131,25 @@ export default function Settings({
             Change
           </button>
         </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs text-fg-faint uppercase tracking-wide mb-2">Output folder</h2>
+        <div className="bg-panel border border-edge rounded-lg px-4 py-3 flex items-center justify-between gap-4">
+          <span className="font-mono text-sm break-all text-fg-muted">
+            {outputFolder ?? "Not set — choose where compiled documents get exported"}
+          </span>
+          <button
+            onClick={chooseOutputFolder}
+            className="shrink-0 text-xs text-fg-muted hover:text-fg border border-edge-strong hover:border-fg-muted px-3 py-1.5 rounded-md transition-colors"
+          >
+            {outputFolder ? "Change" : "Choose…"}
+          </button>
+        </div>
+        <p className="text-xs text-fg-faint mt-1.5">
+          The only place Ghostlog writes files you asked for — exporting a compiled document is the one thing it can
+          save outside its own app data.
+        </p>
       </section>
 
       <section>

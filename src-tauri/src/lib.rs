@@ -66,6 +66,9 @@ pub fn run() {
             commands::get_ai_config,
             commands::set_ai_config,
             commands::ai_compile,
+            commands::get_output_folder,
+            commands::set_output_folder,
+            commands::export_document,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

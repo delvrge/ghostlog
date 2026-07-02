@@ -1,11 +1,12 @@
 /**
- * Compile view: turn captured entries into a document.
+ * Compile view: turn captured entries into a document, and optionally
+ * export it as a real file — the only place the user chooses where
+ * Ghostlog writes to (Settings > Output folder).
  * Scopes: this session / this day (enabled), this week (visible, disabled).
- * The compile itself goes through the AI stub — the single swap point for
- * the future local model.
  */
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { invoke } from "@tauri-apps/api/core";
 import { compileEntries } from "../lib/ai-stub";
 import { readSession, listSessions } from "../lib/session";
 
@@ -21,13 +22,18 @@ export default function Compile({
   onBack: () => void;
 }) {
   const [doc, setDoc] = useState<string | null>(null);
+  const [scope, setScope] = useState<Scope>("session");
   const [busy, setBusy] = useState(false);
+  const [exportResult, setExportResult] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
-  async function compile(scope: Scope) {
+  async function compile(nextScope: Scope) {
     setBusy(true);
+    setExportResult(null);
+    setExportError(null);
     try {
       let markdowns: string[] = [];
-      if (scope === "session") {
+      if (nextScope === "session") {
         const entries = await readSession(date, sessionId);
         markdowns = entries.map((e) => `## ${e.title}\n\n${e.summary}`);
       } else {
@@ -36,9 +42,23 @@ export default function Compile({
           markdowns.push(...entries.map((e) => `## ${e.title}\n\n${e.summary}`));
         }
       }
+      setScope(nextScope);
       setDoc(await compileEntries(markdowns));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function exportDoc() {
+    if (!doc) return;
+    setExportError(null);
+    setExportResult(null);
+    const filename = `ghostlog-${scope}-${date}-${sessionId}.md`;
+    try {
+      const path = await invoke<string>("export_document", { filename, content: doc });
+      setExportResult(path);
+    } catch (e) {
+      setExportError(String(e));
     }
   }
 
@@ -79,9 +99,21 @@ export default function Compile({
       </header>
 
       {doc ? (
-        <article className="bg-panel border border-edge rounded-lg p-6 prose-ghlg">
-          <ReactMarkdown>{doc}</ReactMarkdown>
-        </article>
+        <>
+          <article className="bg-panel border border-edge rounded-lg p-6 prose-ghlg">
+            <ReactMarkdown>{doc}</ReactMarkdown>
+          </article>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={exportDoc}
+              className="text-sm border border-edge-strong hover:border-fg-muted text-fg-muted hover:text-fg px-3 py-1.5 rounded-md transition-colors"
+            >
+              Export as .md
+            </button>
+            {exportResult && <span className="text-xs text-fg-faint font-mono truncate">Saved to {exportResult}</span>}
+            {exportError && <span className="text-xs text-accent font-mono truncate">{exportError}</span>}
+          </div>
+        </>
       ) : (
         <p className="text-sm text-fg-faint">
           {busy ? "Compiling…" : "Pick a scope to compile the captured entries into a document."}

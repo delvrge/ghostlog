@@ -215,3 +215,29 @@ pub fn set_ai_config(endpoint: String, model: String) -> Result<(), String> {
 pub async fn ai_compile(entries: Vec<String>) -> String {
     crate::ai::compile_document(&entries).await
 }
+
+// ---- Settings: output folder + export ----
+// Separate from the watched (input) folder: this is the one place Ghostlog
+// writes files the user asked for, chosen explicitly, never auto-written to.
+
+#[tauri::command]
+pub fn get_output_folder() -> Option<String> {
+    storage::load_output_folder().map(|p| p.display().to_string())
+}
+
+#[tauri::command]
+pub fn set_output_folder(path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(&path);
+    let canonical = p.canonicalize().map_err(|e| format!("Cannot access folder: {e}"))?;
+    if !canonical.is_dir() {
+        return Err("Selected path is not a directory".into());
+    }
+    storage::save_output_folder(&canonical)
+}
+
+/// Writes a compiled document to the configured output folder. Returns the
+/// full path written, so the UI can tell the user exactly where it went.
+#[tauri::command]
+pub fn export_document(filename: String, content: String) -> Result<String, String> {
+    storage::export_document(&filename, &content)
+}

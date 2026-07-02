@@ -106,6 +106,44 @@ pub fn save_ai_config(ai: &AiConfig) -> Result<(), String> {
     write_config(&cfg)
 }
 
+// ---- Export ----
+// The output folder is the ONLY place outside the app-data directory (and
+// the watched repo's own .git/hooks, for the commit hook) that Ghostlog is
+// allowed to write to — and only when the user explicitly exports a
+// document, never automatically.
+
+pub fn load_output_folder() -> Option<PathBuf> {
+    read_config()
+        .get("outputFolder")
+        .and_then(|v| v.as_str())
+        .map(PathBuf::from)
+        .filter(|p| p.is_dir())
+}
+
+pub fn save_output_folder(path: &Path) -> Result<(), String> {
+    let mut cfg = read_config();
+    cfg["outputFolder"] = serde_json::json!(path.display().to_string());
+    write_config(&cfg)
+}
+
+/// Writes `content` under the configured output folder. `filename` is
+/// sanitized to a bare name — no path separators or traversal — so an
+/// export can never land outside the folder the user chose.
+pub fn export_document(filename: &str, content: &str) -> Result<String, String> {
+    let folder = load_output_folder().ok_or("No output folder configured (Settings > Output folder)")?;
+    let safe_name: String = filename
+        .chars()
+        .map(|c| if matches!(c, '/' | '\\' | ':') { '-' } else { c })
+        .collect();
+    let safe_name = safe_name.trim_start_matches('.').to_string();
+    if safe_name.is_empty() {
+        return Err("Invalid export filename".into());
+    }
+    let path = folder.join(safe_name);
+    fs::write(&path, content).map_err(|e| e.to_string())?;
+    Ok(path.display().to_string())
+}
+
 fn project_root(project: &str) -> Result<PathBuf, String> {
     Ok(app_data_root()?.join(project))
 }
