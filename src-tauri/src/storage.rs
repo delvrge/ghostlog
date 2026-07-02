@@ -43,6 +43,30 @@ pub fn app_data_root() -> Result<PathBuf, String> {
     Ok(base.join(name))
 }
 
+/// config.json in the app-data root persists the watched folder across
+/// restarts (the single free-tier folder — nothing else is stored).
+pub fn load_config(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    let Ok(root) = app_data_root() else { return };
+    let Ok(raw) = fs::read_to_string(root.join("config.json")) else { return };
+    let Ok(cfg) = serde_json::from_str::<serde_json::Value>(&raw) else { return };
+    if let Some(path) = cfg.get("watchedFolder").and_then(|v| v.as_str()) {
+        let p = PathBuf::from(path);
+        if p.is_dir() {
+            let state = app.state::<crate::state::AppState>();
+            *state.watched_path.lock().unwrap() = Some(p);
+        }
+    }
+}
+
+pub fn save_config(watched: &Path) -> Result<(), String> {
+    let root = app_data_root()?;
+    fs::create_dir_all(&root).map_err(|e| e.to_string())?;
+    let cfg = serde_json::json!({ "watchedFolder": watched.display().to_string() });
+    fs::write(root.join("config.json"), serde_json::to_string_pretty(&cfg).unwrap())
+        .map_err(|e| e.to_string())
+}
+
 fn project_root(project: &str) -> Result<PathBuf, String> {
     Ok(app_data_root()?.join(project))
 }

@@ -39,7 +39,8 @@ pub fn set_watched_folder(app: AppHandle, path: String) -> Result<(), String> {
         return Err("Selected path is not a directory".into());
     }
     let state = app.state::<AppState>();
-    *state.watched_path.lock().unwrap() = Some(canonical);
+    *state.watched_path.lock().unwrap() = Some(canonical.clone());
+    storage::save_config(&canonical)?;
     Ok(())
 }
 

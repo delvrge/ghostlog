@@ -14,9 +14,12 @@ use state::AppState;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .setup(|app| {
             tray::init(app.handle())?;
+            // Restore the previously chosen watched folder, if any.
+            storage::load_config(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
