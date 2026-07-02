@@ -38,6 +38,19 @@ pub fn set_watched_folder(app: AppHandle, path: String) -> Result<(), String> {
     if !canonical.is_dir() {
         return Err("Selected path is not a directory".into());
     }
+
+    // Free tier watches exactly ONE project, enforced structurally:
+    // the folder must be the ROOT of a git repository. This rejects both
+    // umbrella folders (a parent holding many projects has no .git) and
+    // subfolders inside a project (their repo root is above them).
+    if !canonical.join(".git").exists() {
+        return Err(
+            "This folder is not a git project. GHLG (free) watches a single \
+             project — select the root folder of one repository. Watching \
+             multiple projects at once is a GHLG Pro feature."
+                .into(),
+        );
+    }
     let state = app.state::<AppState>();
     *state.watched_path.lock().unwrap() = Some(canonical.clone());
     storage::save_config(&canonical)?;
