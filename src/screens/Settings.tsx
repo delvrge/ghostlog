@@ -1,6 +1,6 @@
 /**
  * Settings — watched folder, trigger toggles, extension status,
- * launch-at-login, about, and the presentational-only "GHLG Pro" section.
+ * launch-at-login, about, and the presentational-only "Ghostlog Pro" section.
  *
  * The Pro section below is disabled and purely visual per CLAUDE.md: it
  * must never import from src/pro-stub/ or wire up real logic.
@@ -15,13 +15,13 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
     <button
       onClick={onChange}
       disabled={disabled}
-      className={`relative w-10 h-5.5 rounded-full transition-colors shrink-0 ${
+      className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${
         disabled ? "bg-edge cursor-not-allowed opacity-50" : checked ? "bg-accent" : "bg-edge-strong"
       }`}
     >
       <span
-        className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-fg transition-transform ${
-          checked ? "translate-x-[1.15rem]" : "translate-x-0.5"
+        className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-fg transition-transform ${
+          checked ? "translate-x-4" : "translate-x-0"
         }`}
       />
     </button>
@@ -54,12 +54,31 @@ export default function Settings({
   const [version, setVersion] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const [aiEndpoint, setAiEndpoint] = useState("");
+  const [aiModel, setAiModel] = useState("");
+  const [aiSaved, setAiSaved] = useState(false);
+
   useEffect(() => {
     invoke<boolean>("is_git_hook_enabled").then(setGitHook).catch(() => {});
     autostartEnabled().then(setLaunchAtLogin).catch(() => {});
     invoke<string>("get_extension_status").then((s) => setExtensionStatus(s as "connected" | "disconnected"));
     getVersion().then(setVersion);
+    invoke<{ endpoint: string; model: string }>("get_ai_config").then((cfg) => {
+      setAiEndpoint(cfg.endpoint);
+      setAiModel(cfg.model);
+    });
   }, []);
+
+  async function saveAiConfig() {
+    setError(null);
+    try {
+      await invoke("set_ai_config", { endpoint: aiEndpoint.trim(), model: aiModel.trim() });
+      setAiSaved(true);
+      setTimeout(() => setAiSaved(false), 1500);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
 
   async function toggleGitHook() {
     setError(null);
@@ -124,6 +143,41 @@ export default function Settings({
       </section>
 
       <section>
+        <h2 className="text-xs text-fg-faint uppercase tracking-wide mb-1">AI provider</h2>
+        <div className="bg-panel border border-edge rounded-lg px-4 py-4 space-y-3">
+          <p className="text-xs text-fg-muted">
+            Ghostlog summarizes captures with a model you point it at — nothing is sent anywhere until you set this.
+            Works with any local or self-hosted OpenAI/Ollama-compatible endpoint. Leave blank to keep using mock
+            summaries.
+          </p>
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <input
+              value={aiEndpoint}
+              onChange={(e) => setAiEndpoint(e.target.value)}
+              placeholder="http://localhost:11434"
+              className="bg-ink border border-edge rounded-md px-3 py-2 text-sm font-mono placeholder:text-fg-faint focus:outline-none focus:border-accent"
+            />
+            <input
+              value={aiModel}
+              onChange={(e) => setAiModel(e.target.value)}
+              placeholder="model name"
+              className="w-40 bg-ink border border-edge rounded-md px-3 py-2 text-sm font-mono placeholder:text-fg-faint focus:outline-none focus:border-accent"
+            />
+          </div>
+          <button
+            onClick={saveAiConfig}
+            className="text-sm bg-accent hover:bg-accent-dim text-white px-4 py-2 rounded-md transition-colors"
+          >
+            {aiSaved ? "Saved" : "Save"}
+          </button>
+          {/* Presentational only — no working preset list, no pro-stub import. */}
+          <p className="text-xs text-fg-faint pt-1 border-t border-edge">
+            Ready-made provider presets are available in Ghostlog Pro.
+          </p>
+        </div>
+      </section>
+
+      <section>
         <h2 className="text-xs text-fg-faint uppercase tracking-wide mb-1">General</h2>
         <div className="bg-panel border border-edge rounded-lg px-4 divide-y divide-edge">
           <Row title="Launch at login">
@@ -140,7 +194,7 @@ export default function Settings({
       {/* Presentational only — no imports from src/pro-stub/, no working logic. */}
       <section className="opacity-50">
         <h2 className="text-xs text-fg-faint uppercase tracking-wide mb-1 flex items-center gap-2">
-          GHLG Pro
+          Ghostlog Pro
         </h2>
         <div className="bg-panel border border-edge rounded-lg px-4 divide-y divide-edge">
           <Row title="Multi-project management" description="Coming soon">

@@ -16,7 +16,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
 
   async function pickFolder() {
     setError(null);
-    const selection = await open({ directory: true, multiple: false, title: "Choose the project folder GHLG will watch" });
+    const selection = await open({ directory: true, multiple: false, title: "Choose the project folder Ghostlog will watch" });
     if (typeof selection === "string") {
       setPicked(selection);
       setStep("confirm");
@@ -39,7 +39,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
       <div className="w-full max-w-lg space-y-6">
         <header className="space-y-1">
           <h1 className="text-xl font-semibold tracking-tight">
-            Welcome to GHLG<span className="text-accent">.</span>
+            Welcome to Ghostlog<span className="text-accent">.</span>
           </h1>
           <p className="text-fg-muted text-sm">Quiet capture while you build. Review whenever you want.</p>
         </header>
@@ -48,7 +48,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
           <section className="bg-panel border border-edge rounded-lg p-6 space-y-4">
             <h2 className="font-medium">Choose your project folder</h2>
             <p className="text-sm text-fg-muted">
-              GHLG only reads inside this folder.{" "}
+              Ghostlog only reads inside this folder.{" "}
               <span className="text-fg">Nothing else on your machine is accessed.</span>
             </p>
             {error && <p className="text-sm text-accent font-mono">{error}</p>}
@@ -64,7 +64,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
         {step === "confirm" && picked && (
           <section className="bg-panel border border-edge rounded-lg p-6 space-y-4">
             <h2 className="font-medium">Confirm the watched folder</h2>
-            <p className="text-sm text-fg-muted">GHLG will watch exactly this path — and nothing outside it:</p>
+            <p className="text-sm text-fg-muted">Ghostlog will watch exactly this path — and nothing outside it:</p>
             <code className="block bg-ink border border-edge rounded-md px-3 py-2 font-mono text-sm break-all">
               {picked}
             </code>
@@ -89,10 +89,10 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
           <section className="bg-panel border border-edge rounded-lg p-6 space-y-4">
             <h2 className="font-medium">Connect the browser extension</h2>
             <p className="text-sm text-fg-muted">
-              The GHLG extension captures screenshots of <span className="font-mono text-fg">localhost</span> while
+              The Ghostlog extension captures screenshots of <span className="font-mono text-fg">localhost</span> while
               you test. Its permissions are limited to{" "}
               <span className="font-mono text-fg">localhost / 127.0.0.1</span> — it cannot see any other site, and it
-              talks to GHLG through the browser's native messaging channel, never over the network.
+              talks to Ghostlog through the browser's native messaging channel, never over the network.
             </p>
             <p className="text-sm text-fg-faint">
               Installation instructions will appear here once the extension build lands. You can connect it later from

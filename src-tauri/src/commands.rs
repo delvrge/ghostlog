@@ -45,9 +45,9 @@ pub fn set_watched_folder(app: AppHandle, path: String) -> Result<(), String> {
     // subfolders inside a project (their repo root is above them).
     if !canonical.join(".git").exists() {
         return Err(
-            "This folder is not a git project. GHLG (free) watches a single \
+            "This folder is not a git project. Ghostlog (free) watches a single \
              project — select the root folder of one repository. Watching \
-             multiple projects at once is a GHLG Pro feature."
+             multiple projects at once is a Ghostlog Pro feature."
                 .into(),
         );
     }
@@ -190,4 +190,20 @@ pub fn set_git_hook_enabled(state: State<AppState>, enabled: bool) -> Result<(),
 #[tauri::command]
 pub fn get_extension_status() -> &'static str {
     "disconnected"
+}
+
+// ---- Settings: AI provider ----
+// Free tier ships with no preset — the user points Ghostlog at their own
+// local/self-hosted endpoint. ai-stub.ts reads this to decide whether to
+// call a real model or keep returning mock data; storing the config here
+// does NOT itself wire up any model call (see ai-stub.ts for that boundary).
+
+#[tauri::command]
+pub fn get_ai_config() -> storage::AiConfig {
+    storage::load_ai_config()
+}
+
+#[tauri::command]
+pub fn set_ai_config(endpoint: String, model: String) -> Result<(), String> {
+    storage::save_ai_config(&storage::AiConfig { endpoint, model })
 }

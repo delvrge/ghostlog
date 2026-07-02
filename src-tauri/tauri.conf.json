@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "GHLG",
+  "productName": "Ghostlog",
   "version": "0.1.0",
   "identifier": "net.delarge.ghlg",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "GHLG — Review",
+        "title": "Ghostlog — Review",
         "width": 1080,
         "height": 720
       }

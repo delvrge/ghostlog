@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "GHLG",
+  "name": "Ghostlog",
   "version": "0.1.0",
-  "description": "GHLG localhost capture — talks to the GHLG native app via Native Messaging only. No network access, scoped strictly to localhost.",
+  "description": "Ghostlog localhost capture — talks to the Ghostlog native app via Native Messaging only. No network access, scoped strictly to localhost.",
   "permissions": ["nativeMessaging", "activeTab"],
   "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
   "background": {
@@ -16,6 +16,6 @@
     }
   ],
   "action": {
-    "default_title": "GHLG"
+    "default_title": "Ghostlog"
   }
 }

@@ -2,9 +2,15 @@
  * ai-stub.ts — the ONLY place AI calls live.
  *
  * STUB: every function here returns realistic mock data. Replace with real
- * local model calls (Ollama) once a model is selected. Swapping in the real
- * implementation must touch this file only — nothing else in the app may
- * talk to a model directly.
+ * local model calls (Ollama, or any endpoint the user configures in
+ * Settings → AI Provider, read via get_ai_config) once a model is selected.
+ * Swapping in the real implementation must touch this file only — nothing
+ * else in the app may talk to a model directly.
+ *
+ * Settings already lets the user store an endpoint + model (free tier:
+ * empty by default, bring-your-own; Pro: presets). That config is inert
+ * until this file is wired to actually call it — storing it is not the
+ * same as using it.
  */
 
 export interface EntryDraft {

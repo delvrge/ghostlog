@@ -56,6 +56,8 @@ pub fn run() {
             commands::is_git_hook_enabled,
             commands::set_git_hook_enabled,
             commands::get_extension_status,
+            commands::get_ai_config,
+            commands::set_ai_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

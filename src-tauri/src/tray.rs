@@ -15,19 +15,19 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open-review", "Open Review Window", true, None::<&str>)?;
     let start = MenuItem::with_id(app, "start-watching", "Start Watching", true, None::<&str>)?;
     let stop = MenuItem::with_id(app, "stop-watching", "Stop Watching", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit GHLG", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Ghostlog", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open, &start, &stop, &quit])?;
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(tauri::image::Image::from_bytes(ICON_IDLE)?)
-        .tooltip("GHLG — idle")
+        .tooltip("Ghostlog — idle")
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open-review" => show_review_window(app),
             "start-watching" => {
                 if let Err(e) = crate::watcher::start(app) {
-                    eprintln!("GHLG: start watching failed: {e}");
+                    eprintln!("Ghostlog: start watching failed: {e}");
                 }
             }
             "stop-watching" => crate::watcher::stop(app),
@@ -49,7 +49,7 @@ pub fn sync(app: &AppHandle) {
         if let Ok(icon) = tauri::image::Image::from_bytes(bytes) {
             let _ = tray.set_icon(Some(icon));
         }
-        let _ = tray.set_tooltip(Some(if watching { "GHLG — watching" } else { "GHLG — idle" }));
+        let _ = tray.set_tooltip(Some(if watching { "Ghostlog — watching" } else { "Ghostlog — idle" }));
     }
 }
 

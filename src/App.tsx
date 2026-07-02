@@ -53,7 +53,7 @@ export default function App() {
     <div className="min-h-screen bg-ink text-fg font-sans flex">
       <nav className="w-44 shrink-0 border-r border-edge p-4 flex flex-col gap-1">
         <p className="font-semibold tracking-tight px-3 pb-3">
-          GHLG<span className="text-accent">.</span>
+          Ghostlog<span className="text-accent">.</span>
         </p>
         {nav.map((n) => (
           <button

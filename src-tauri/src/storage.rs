@@ -43,13 +43,31 @@ pub fn app_data_root() -> Result<PathBuf, String> {
     Ok(base.join(name))
 }
 
-/// config.json in the app-data root persists the watched folder across
-/// restarts (the single free-tier folder — nothing else is stored).
+/// config.json in the app-data root persists small local settings across
+/// restarts: the single watched folder (free tier) and, optionally, the
+/// user's own AI endpoint/model. Nothing is sent anywhere by this file
+/// itself — it's just local key-value storage.
+fn config_path() -> Result<PathBuf, String> {
+    Ok(app_data_root()?.join("config.json"))
+}
+
+fn read_config() -> serde_json::Value {
+    config_path()
+        .ok()
+        .and_then(|p| fs::read_to_string(p).ok())
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_else(|| serde_json::json!({}))
+}
+
+fn write_config(cfg: &serde_json::Value) -> Result<(), String> {
+    let root = app_data_root()?;
+    fs::create_dir_all(&root).map_err(|e| e.to_string())?;
+    fs::write(config_path()?, serde_json::to_string_pretty(cfg).unwrap()).map_err(|e| e.to_string())
+}
+
 pub fn load_config(app: &tauri::AppHandle) {
     use tauri::Manager;
-    let Ok(root) = app_data_root() else { return };
-    let Ok(raw) = fs::read_to_string(root.join("config.json")) else { return };
-    let Ok(cfg) = serde_json::from_str::<serde_json::Value>(&raw) else { return };
+    let cfg = read_config();
     if let Some(path) = cfg.get("watchedFolder").and_then(|v| v.as_str()) {
         let p = PathBuf::from(path);
         if p.is_dir() {
@@ -60,11 +78,32 @@ pub fn load_config(app: &tauri::AppHandle) {
 }
 
 pub fn save_config(watched: &Path) -> Result<(), String> {
-    let root = app_data_root()?;
-    fs::create_dir_all(&root).map_err(|e| e.to_string())?;
-    let cfg = serde_json::json!({ "watchedFolder": watched.display().to_string() });
-    fs::write(root.join("config.json"), serde_json::to_string_pretty(&cfg).unwrap())
-        .map_err(|e| e.to_string())
+    let mut cfg = read_config();
+    cfg["watchedFolder"] = serde_json::json!(watched.display().to_string());
+    write_config(&cfg)
+}
+
+#[derive(Clone, Serialize, serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AiConfig {
+    /// e.g. "http://localhost:11434" — any local/self-hosted OpenAI- or
+    /// Ollama-compatible endpoint. Empty means: keep using ai-stub mocks.
+    pub endpoint: String,
+    /// e.g. "llama3.2" — model name as the endpoint expects it.
+    pub model: String,
+}
+
+pub fn load_ai_config() -> AiConfig {
+    read_config()
+        .get("ai")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default()
+}
+
+pub fn save_ai_config(ai: &AiConfig) -> Result<(), String> {
+    let mut cfg = read_config();
+    cfg["ai"] = serde_json::to_value(ai).map_err(|e| e.to_string())?;
+    write_config(&cfg)
 }
 
 fn project_root(project: &str) -> Result<PathBuf, String> {
