@@ -417,8 +417,12 @@ pub async fn capture_from_git_commit(repo: &Path) -> Result<(), String> {
     let subject = run_git(repo, &["log", "-1", "--pretty=%s"])?;
     let diff = truncate_diff(run_git(repo, &["show", "--pretty=", "HEAD"]).unwrap_or_default());
     let note = if subject.is_empty() { "git commit".to_string() } else { subject };
+    // An empty diff (e.g. --allow-empty, or a merge with nothing to show)
+    // must not be handed to the model as if there were real content to
+    // reason about — see ai.rs for why that matters.
+    let diff_context = if diff.trim().is_empty() { None } else { Some(diff.as_str()) };
 
-    let draft = crate::ai::summarize_capture(&note, Some(&diff)).await;
+    let draft = crate::ai::summarize_capture(&note, diff_context).await;
     let (date, session_id) = create_session(&project)?;
     write_entry(&project, &date, &session_id, &draft.tag, &draft.title, &draft.summary)?;
     Ok(())

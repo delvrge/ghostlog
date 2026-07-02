@@ -117,12 +117,16 @@ pub async fn summarize_capture(hint: &str, diff: Option<&str>) -> EntryDraft {
     let system = "You are a documentation assistant for a solo developer. Given a code \
                   diff (and sometimes a short note from the developer), reconstruct what \
                   actually happened — do not just repeat the note verbatim, the diff is \
-                  the real evidence. Reply with ONLY a JSON object with exactly these keys:\n\
+                  the real evidence. NEVER invent file names, function names, or specifics \
+                  that are not visible in the diff or note below — if there is no diff and \
+                  the note is thin or missing, say plainly that there isn't enough \
+                  information, do not guess or fabricate a plausible-sounding story. Reply \
+                  with ONLY a JSON object with exactly these keys:\n\
                   \"tag\": one of \"bugfix\", \"update\", \"feature\".\n\
                   \"title\": a short one-line title, under 60 characters.\n\
                   \"summary\": a markdown string with these sections, each 1-3 sentences, \
                   omitting a section only if it genuinely doesn't apply:\n\
-                  \"**Problem:** what was broken or missing, inferred from the diff.\n\
+                  \"**Problem:** what was broken or missing, inferred ONLY from the diff.\n\
                   \"**Fix:** what the diff actually changed to address it.\n\
                   \"**Reasoning:** the likely thought process behind that specific fix.\n\
                   \"**Suggestion:** (optional) one concrete follow-up idea, only if genuinely useful.\n\
@@ -130,7 +134,10 @@ pub async fn summarize_capture(hint: &str, diff: Option<&str>) -> EntryDraft {
     let user = format!(
         "Developer's note (a hint, not the full story): {}\n\n{}",
         if hint.trim().is_empty() { "(none given)" } else { hint },
-        diff.map(|d| format!("Diff:\n```diff\n{d}\n```")).unwrap_or_else(|| "No diff available — the note is the only material.".to_string())
+        diff.map(|d| format!("Diff:\n```diff\n{d}\n```"))
+            .unwrap_or_else(|| "No diff available — there is no code change to reason about. \
+                Base the summary only on the note above; if the note is also thin, say so \
+                plainly instead of inventing detail.".to_string())
     );
 
     match call_llama_cpp(&cfg, system, &user, true).await {
@@ -146,13 +153,74 @@ struct RawDraft {
     summary: String,
 }
 
+/// Small local models rarely produce perfectly strict JSON even when asked
+/// (markdown code fences, YAML-style block scalars for multi-line string
+/// values, etc). Strip the obvious wrapping first, try strict parsing, and
+/// fall back to pulling the three fields out with plain string search
+/// rather than discarding a perfectly good reconstruction over a syntax
+/// slip.
 fn parse_draft(raw: &str) -> Option<EntryDraft> {
-    let d: RawDraft = serde_json::from_str(raw.trim()).ok()?;
+    let cleaned = strip_code_fence(raw.trim());
+
+    if let Ok(d) = serde_json::from_str::<RawDraft>(&cleaned) {
+        return Some(normalize(d));
+    }
+
+    heuristic_extract(&cleaned)
+}
+
+fn strip_code_fence(s: &str) -> String {
+    let s = s.trim();
+    let Some(rest) = s.strip_prefix("```") else { return s.to_string() };
+    let rest = rest.strip_prefix("json").unwrap_or(rest);
+    rest.trim_start_matches('\n').trim_end().trim_end_matches("```").trim().to_string()
+}
+
+fn normalize(d: RawDraft) -> EntryDraft {
     let tag = match d.tag.as_str() {
         "bugfix" | "feature" => d.tag,
         _ => "update".to_string(),
     };
-    Some(EntryDraft { tag, title: d.title, summary: d.summary })
+    EntryDraft { tag, title: d.title, summary: d.summary }
+}
+
+/// Pulls tag/title/summary out of a near-JSON reply that failed strict
+/// parsing — e.g. a summary value written as a YAML block scalar (`>`)
+/// instead of a quoted JSON string. Only used when serde_json gives up.
+fn heuristic_extract(text: &str) -> Option<EntryDraft> {
+    let tag = extract_quoted_value(text, "tag")
+        .filter(|t| ["bugfix", "update", "feature"].contains(&t.as_str()))
+        .unwrap_or_else(|| "update".to_string());
+    let title = extract_quoted_value(text, "title")?;
+
+    let summary_start = text.find("\"summary\"")? + "\"summary\"".len();
+    let after_colon = text[summary_start..].trim_start().strip_prefix(':')?.trim_start();
+    // Whatever follows (quoted string, YAML `>` block, or bare text) up to
+    // the closing brace is the summary content — clean it up as markdown.
+    let body = after_colon.trim_end_matches(['}', '`']).trim();
+    let body = body.strip_prefix(['>', '|']).unwrap_or(body);
+    let body = body.trim().trim_matches('"');
+    let summary = body
+        .lines()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string();
+    if summary.is_empty() {
+        return None;
+    }
+
+    Some(EntryDraft { tag, title, summary })
+}
+
+fn extract_quoted_value(text: &str, key: &str) -> Option<String> {
+    let needle = format!("\"{key}\"");
+    let start = text.find(&needle)? + needle.len();
+    let rest = text[start..].trim_start().strip_prefix(':')?.trim_start();
+    let rest = rest.strip_prefix('"')?;
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
 }
 
 fn fallback_with_note(note: &str, raw: &str) -> EntryDraft {
