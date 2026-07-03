@@ -361,7 +361,53 @@ fn parse_entry(path: &Path) -> Result<SessionEntry, String> {
     })
 }
 
-/// Overwrite an entry's editable fields (tag, title, summary).
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchHit {
+    pub date: String,
+    pub session_id: String,
+    pub entry: SessionEntry,
+}
+
+/// Search hits are capped so a very common term on a long-lived project
+/// can't hand the webview thousands of results at once.
+const MAX_SEARCH_HITS: usize = 100;
+
+/// Case-insensitive substring search over every entry of the project —
+/// matches against title, tag, and summary body. Newest dates first (same
+/// order as the archive). A plain filesystem walk is consistent with the
+/// no-database design; at single-project scale it stays well under
+/// anything that would justify an index.
+pub fn search_entries(project: &str, query: &str) -> Result<Vec<SearchHit>, String> {
+    let needle = query.trim().to_lowercase();
+    if needle.is_empty() {
+        return Ok(vec![]);
+    }
+    let mut hits = Vec::new();
+    for date in list_dates(project)? {
+        for session in list_sessions(project, &date)? {
+            for entry in read_session(project, &date, &session.session_id)? {
+                let haystack =
+                    format!("{}\n{}\n{}", entry.title, entry.tag, entry.summary).to_lowercase();
+                if haystack.contains(&needle) {
+                    hits.push(SearchHit {
+                        date: date.clone(),
+                        session_id: session.session_id.clone(),
+                        entry,
+                    });
+                    if hits.len() >= MAX_SEARCH_HITS {
+                        return Ok(hits);
+                    }
+                }
+            }
+        }
+    }
+    Ok(hits)
+}
+
+/// Overwrite an entry's editable fields (tag, title, summary). The
+/// screenshot reference (if any) is carried over — editing a note must not
+/// silently detach its screenshot.
 pub fn update_entry(
     project: &str,
     date: &str,

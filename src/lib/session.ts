@@ -34,6 +34,21 @@ export async function listSessions(date: string): Promise<SessionMeta[]> {
   return invoke("list_sessions", { date });
 }
 
+export interface SearchHit {
+  date: string;
+  sessionId: string;
+  entry: SessionEntry;
+}
+
+/**
+ * Full-text search across every entry of the project (title, tag, summary),
+ * newest dates first. Capped server-side, so an over-broad query returns a
+ * manageable page rather than the whole archive.
+ */
+export async function searchEntries(query: string): Promise<SearchHit[]> {
+  return invoke("search_entries", { query });
+}
+
 /** Read all entries in a session. */
 export async function readSession(
   date: string,

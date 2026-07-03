@@ -135,6 +135,17 @@ pub fn read_session(
     storage::read_session(&current_project(&state)?, &date, &session_id)
 }
 
+/// Full-text search across every entry of the watched project — backs the
+/// Archive search box, so finding "that fix from a few weeks ago" doesn't
+/// require remembering which date it happened on.
+#[tauri::command]
+pub fn search_entries(
+    state: State<AppState>,
+    query: String,
+) -> Result<Vec<storage::SearchHit>, String> {
+    storage::search_entries(&current_project(&state)?, &query)
+}
+
 #[tauri::command]
 pub fn update_entry(
     state: State<AppState>,

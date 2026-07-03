@@ -112,6 +112,7 @@ pub fn run() {
             commands::list_session_dates,
             commands::list_sessions,
             commands::read_session,
+            commands::search_entries,
             commands::update_entry,
             commands::delete_entry,
             commands::is_git_hook_enabled,
