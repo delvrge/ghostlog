@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import {
+  deleteSession,
   listDates,
   listSessions,
   searchEntries,
@@ -16,6 +17,8 @@ import {
 import TagBadge from "../components/TagBadge";
 
 const SEARCH_DEBOUNCE_MS = 250;
+/** How long a first click's "Confirm?" state stays armed before resetting. */
+const DELETE_CONFIRM_MS = 3000;
 
 export default function Archive({
   onOpenSession,
@@ -29,6 +32,8 @@ export default function Archive({
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
+  // sessionId pending a second click to actually delete, or null.
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
 
   useEffect(() => {
     listDates().then((d) => {
@@ -58,6 +63,24 @@ export default function Archive({
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [query]);
+
+  // Reset an armed "Confirm?" state after a few seconds of inaction, so a
+  // stray click much later can't land on an already-armed delete button.
+  useEffect(() => {
+    if (!confirmingDelete) return;
+    const t = setTimeout(() => setConfirmingDelete(null), DELETE_CONFIRM_MS);
+    return () => clearTimeout(t);
+  }, [confirmingDelete]);
+
+  async function handleDeleteSession(date: string, sessionId: string) {
+    if (confirmingDelete !== sessionId) {
+      setConfirmingDelete(sessionId);
+      return;
+    }
+    setConfirmingDelete(null);
+    await deleteSession(date, sessionId);
+    setSessions(await listSessions(date));
+  }
 
   const visibleDates = dates.filter((d) => d.includes(filter));
   const searchActive = query.trim().length > 0;
@@ -136,16 +159,30 @@ export default function Archive({
               </p>
             )}
             {sessions.map((s) => (
-              <button
+              <div
                 key={s.sessionId}
-                onClick={() => onOpenSession(s.date, s.sessionId)}
-                className="w-full flex items-center justify-between bg-panel hover:bg-panel-raised border border-edge rounded-lg px-4 py-3 transition-colors text-left"
+                className="w-full flex items-center justify-between bg-panel hover:bg-panel-raised border border-edge rounded-lg px-4 py-3 transition-colors gap-3"
               >
-                <span className="font-mono text-sm">{s.sessionId}</span>
-                <span className="text-xs text-fg-muted">
-                  {s.entryCount} {s.entryCount === 1 ? "entry" : "entries"}
-                </span>
-              </button>
+                <button
+                  onClick={() => onOpenSession(s.date, s.sessionId)}
+                  className="flex-1 flex items-center justify-between text-left min-w-0"
+                >
+                  <span className="font-mono text-sm">{s.sessionId}</span>
+                  <span className="text-xs text-fg-muted mr-3">
+                    {s.entryCount} {s.entryCount === 1 ? "entry" : "entries"}
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleDeleteSession(s.date, s.sessionId)}
+                  className={`shrink-0 text-xs px-2 py-1 rounded-md transition-colors ${
+                    confirmingDelete === s.sessionId
+                      ? "bg-accent text-white"
+                      : "text-fg-faint hover:text-accent hover:bg-accent/10"
+                  }`}
+                >
+                  {confirmingDelete === s.sessionId ? "Confirm delete?" : "Delete"}
+                </button>
+              </div>
             ))}
           </div>
         )}

@@ -470,6 +470,19 @@ pub fn delete_entry(
     Ok(())
 }
 
+/// Deletes an entire session folder (every entry and screenshot in it) in
+/// one shot — the Archive's per-session delete action, for discarding a
+/// whole low-value session instead of its entries one at a time.
+/// `session_dir` already rejects path-traversal-shaped date/session_id
+/// input, so this can't be pointed outside the project folder.
+pub fn delete_session(project: &str, date: &str, session_id: &str) -> Result<(), String> {
+    let dir = session_dir(project, date, session_id)?;
+    if !dir.is_dir() {
+        return Ok(());
+    }
+    fs::remove_dir_all(&dir).map_err(|e| e.to_string())
+}
+
 // ---- Git commit hook ----
 // The hook script shells out to the GHLG binary itself in a lightweight CLI
 // mode (see main.rs), so a capture can be written even when the review
@@ -793,4 +806,5 @@ fn find_entry(
         .find(|e| e.id == entry_id)
         .ok_or_else(|| format!("Entry not found: {entry_id}"))
 }
+
 

@@ -170,6 +170,17 @@ pub fn delete_entry(
     storage::delete_entry(&current_project(&state)?, &date, &session_id, &entry_id)
 }
 
+/// Deletes an entire session (every entry + screenshot in it) — the
+/// Archive's per-session delete action.
+#[tauri::command]
+pub fn delete_session(
+    state: State<AppState>,
+    date: String,
+    session_id: String,
+) -> Result<(), String> {
+    storage::delete_session(&current_project(&state)?, &date, &session_id)
+}
+
 // ---- Settings: git-commit trigger ----
 
 fn watched_path(state: &State<AppState>) -> Result<std::path::PathBuf, String> {

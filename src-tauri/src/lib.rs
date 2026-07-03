@@ -118,6 +118,7 @@ pub fn run() {
             commands::search_entries,
             commands::update_entry,
             commands::delete_entry,
+            commands::delete_session,
             commands::is_git_hook_enabled,
             commands::set_git_hook_enabled,
             commands::get_extension_status,

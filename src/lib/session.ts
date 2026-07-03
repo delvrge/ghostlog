@@ -75,3 +75,8 @@ export async function deleteEntry(
 ): Promise<void> {
   await invoke("delete_entry", { date, sessionId, entryId });
 }
+
+/** Delete an entire session — every entry and screenshot in it. */
+export async function deleteSession(date: string, sessionId: string): Promise<void> {
+  await invoke("delete_session", { date, sessionId });
+}
