@@ -1,34 +1,60 @@
 /*
  * GHLG design tokens — Tailwind v4 theme.
- * Palette is strictly red / white / gray / near-black.
- * Red is the ONLY accent: primary actions, active/watching states, important tags.
- * No greens/blues/yellows anywhere — neutral-positive states use white/gray.
- * Keep in sync with src/styles/theme.ts (JS-side tokens).
+ * Palette is strictly red / white / gray / near-black, in both dark (default)
+ * and light mode. Red is the ONLY accent: primary actions, active/watching
+ * states, important tags. No greens/blues/yellows anywhere — neutral-positive
+ * states use white/gray. Keep in sync with src/styles/theme.ts (JS-side tokens).
  */
 @import "tailwindcss";
 
 @theme {
-  /* Backgrounds */
-  --color-ink: #0d0d0d;          /* app background (dark mode default) */
-  --color-panel: #1a1a1a;        /* cards / panels */
-  --color-panel-raised: #242424; /* hovered / raised panels */
+  /* Backgrounds — near-black, dark mode default */
+  --color-ink: #0c0c0e;
+  --color-panel: #19191c;
+  --color-panel-raised: #222226;
 
-  /* Accent — the one red, reserved */
-  --color-accent: #e63946;
-  --color-accent-dim: #a32833;   /* pressed / muted red */
+  /* Accent — the one red, same value in both themes */
+  --color-accent: #ef233c;
+  --color-accent-dim: #a8192a; /* pressed/muted shade of the same red */
 
-  /* Text */
-  --color-fg: #f5f5f4;           /* primary text, off-white */
-  --color-fg-muted: #8a8a8a;     /* secondary / muted */
-  --color-fg-faint: #5c5c5c;     /* disabled / hints */
+  /* Text — off-white, lightest to darkest role */
+  --color-fg: #f2efee;
+  --color-fg-muted: #d6d3d1;
+  --color-fg-faint: #b3a7a6;
 
-  /* Borders */
-  --color-edge: #2e2e2e;         /* subtle dividers, not pure black */
-  --color-edge-strong: #3d3d3d;
+  /* Borders — neutral gray, no red tint */
+  --color-edge: #2a2a2e;
+  --color-edge-strong: #3d3d42;
 
   /* Typography */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+/*
+ * Light mode — same token names, swapped values: white/near-white
+ * backgrounds, near-black text, cool neutral grays (not warm/cream) for
+ * everything in between. Same red accent as dark mode.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-accent: #ef233c;
+  --color-accent-dim: #a8192a;
+
+  --color-ink: #ffffff;
+  --color-panel: #f1f2f4;
+  --color-panel-raised: #e3e5e8;
+
+  --color-fg: #0c0c0e;
+  --color-fg-muted: #75787d;
+  --color-fg-faint: #a6a9ae;
+
+  --color-edge: #e3e5e8;
+  --color-edge-strong: #c8cbd0;
 }
 
 /* Markdown rendering in the compile view — keeps the palette rules. */
@@ -37,3 +63,27 @@
 .prose-ghlg p { font-size: 0.875rem; color: var(--color-fg-muted); margin-bottom: 0.5rem; }
 .prose-ghlg li { font-size: 0.875rem; color: var(--color-fg-muted); margin-left: 1rem; list-style: disc; }
 .prose-ghlg code { font-family: var(--font-mono); font-size: 0.8125rem; background: var(--color-ink); padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
+
+/* Themed scrollbars (WebKit — Tauri's webview on macOS/Linux is WebKit-based)
+   so the scrollbar reads as part of the app instead of a stock OS overlay. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-edge-strong) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-edge-strong);
+  border-radius: 999px;
+  border: 2px solid var(--color-ink);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-fg-faint);
+  background-clip: padding-box;
+}

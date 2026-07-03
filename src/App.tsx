@@ -51,9 +51,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-ink text-fg font-sans flex">
-      <nav className="w-44 shrink-0 border-r border-edge p-4 flex flex-col gap-1">
-        <p className="font-semibold tracking-tight px-3 pb-3">
-          Ghostlog<span className="text-accent">.</span>
+      <nav className="w-44 shrink-0 bg-accent p-4 flex flex-col gap-1">
+        <p className="font-semibold text-xl tracking-tight px-3 pb-3 text-white">
+          Ghostlog<span className="text-black/60">.</span>
         </p>
         {nav.map((n) => (
           <button
@@ -61,8 +61,8 @@ export default function App() {
             onClick={() => setView({ name: n.key } as View)}
             className={`text-left text-sm px-3 py-2 rounded-md transition-colors ${
               activeKey === n.key
-                ? "bg-panel text-fg"
-                : "text-fg-muted hover:text-fg hover:bg-panel"
+                ? "bg-white/20 text-white"
+                : "text-white/70 hover:text-white hover:bg-white/10"
             }`}
           >
             {n.label}

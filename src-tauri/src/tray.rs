@@ -3,7 +3,7 @@
 
 use crate::state::{AppState, WatchState};
 use tauri::menu::{Menu, MenuItem};
-use tauri::tray::TrayIconBuilder;
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
 
 const TRAY_ID: &str = "ghlg-tray";
@@ -22,7 +22,14 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
         .icon(tauri::image::Image::from_bytes(ICON_IDLE)?)
         .tooltip("Ghostlog — idle")
         .menu(&menu)
-        .show_menu_on_left_click(true)
+        .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, event| {
+            // Left click opens the review window directly (matches how the
+            // Dock icon behaves); right click still shows the menu.
+            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                show_review_window(tray.app_handle());
+            }
+        })
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open-review" => show_review_window(app),
             "start-watching" => {

@@ -10,6 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-dialog";
 import { isEnabled as autostartEnabled, enable as autostartEnable, disable as autostartDisable } from "@tauri-apps/plugin-autostart";
+import { applyTheme, getTheme, type Theme } from "../lib/theme";
 
 function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
   return (
@@ -17,11 +18,17 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
       onClick={onChange}
       disabled={disabled}
       className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${
-        disabled ? "bg-edge cursor-not-allowed opacity-50" : checked ? "bg-accent" : "bg-edge-strong"
+        disabled
+          ? "bg-edge cursor-not-allowed opacity-50"
+          : checked
+            ? "bg-accent"
+            : "bg-edge-strong"
       }`}
     >
+      {/* Fixed white knob with a soft shadow reads correctly against both the
+          red "on" track and the neutral "off" track, in either theme. */}
       <span
-        className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-fg transition-transform ${
+        className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${
           checked ? "translate-x-4" : "translate-x-0"
         }`}
       />
@@ -52,6 +59,7 @@ export default function Settings({
   const [gitHook, setGitHook] = useState(false);
   const [shellHook, setShellHook] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
+  const [theme, setTheme] = useState<Theme>(getTheme());
   const [extensionStatus, setExtensionStatus] = useState<"connected" | "disconnected">("disconnected");
   const [nativeHostInstalled, setNativeHostInstalled] = useState(false);
   const [version, setVersion] = useState("");
@@ -143,6 +151,12 @@ export default function Settings({
     } catch (e) {
       setError(String(e));
     }
+  }
+
+  function toggleTheme() {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    applyTheme(next);
+    setTheme(next);
   }
 
   async function toggleLaunchAtLogin() {
@@ -287,6 +301,14 @@ export default function Settings({
       <section>
         <h2 className="text-xs text-fg-faint uppercase tracking-wide mb-1">General</h2>
         <div className="bg-panel border border-edge rounded-lg px-4 divide-y divide-edge">
+          <Row title="Theme" description={theme === "dark" ? "Dark" : "Light"}>
+            <button
+              onClick={toggleTheme}
+              className="text-sm border border-edge-strong hover:border-fg-muted text-fg-muted hover:text-fg px-3 py-1.5 rounded-md transition-colors"
+            >
+              Switch to {theme === "dark" ? "light" : "dark"}
+            </button>
+          </Row>
           <Row title="Launch at login">
             <Toggle checked={launchAtLogin} onChange={toggleLaunchAtLogin} />
           </Row>
