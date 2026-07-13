@@ -21,7 +21,8 @@
   .wrap{max-width:920px; margin:0 auto; padding:0 24px}
   header.hero{padding:96px 0 64px; text-align:center}
   .brand{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:28px}
-  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:#ff2d2d;animation:rec-blink 1.1s ease-in-out infinite}
+  @keyframes rec-blink{0%,100%{opacity:1}50%{opacity:.25}}
   .brand span{font-weight:600; letter-spacing:.02em; color:var(--muted)}
   h1{font-size:2.6rem; font-weight:700; margin:0 0 18px; letter-spacing:-0.02em}
   .tagline{color:var(--muted); font-size:1.15rem; max-width:640px; margin:0 auto 36px}
@@ -35,7 +36,7 @@
   .btn.ghost{color:var(--text)}
   .btn.ghost:hover{border-color:var(--muted); text-decoration:none}
   .note{color:var(--muted); font-size:.85rem; margin-top:14px}
-  section{padding:56px 0; border-top:1px solid var(--border)}
+  section{padding:56px 0}
   h2{font-size:1.5rem; margin:0 0 8px}
   .sub{color:var(--muted); margin:0 0 32px}
   .shot{
@@ -141,7 +142,6 @@
 <footer>
   <div class="wrap">
     <p>Free and fully open-source. No pro tier, no paywall.</p>
-    <p><a href="https://github.com/delvrge/GHLG">github.com/delvrge/GHLG</a></p>
   </div>
 </footer>
 
