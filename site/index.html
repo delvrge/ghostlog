@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ghostlog — local-first dev notes</title>
+<meta name="description" content="Ghostlog is a free, fully open-source, local-first dev-notes tool for macOS. Zero telemetry, zero cloud, zero network ports." />
+<style>
+  :root{
+    --bg:#0b0b0d; --surface:#141416; --border:#26262a;
+    --text:#f2f2f3; --muted:#9a9aa2; --accent:#7dd3a8;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    line-height:1.55;
+  }
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:920px; margin:0 auto; padding:0 24px}
+  header.hero{padding:96px 0 64px; text-align:center}
+  .brand{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:28px}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+  .brand span{font-weight:600; letter-spacing:.02em; color:var(--muted)}
+  h1{font-size:2.6rem; font-weight:700; margin:0 0 18px; letter-spacing:-0.02em}
+  .tagline{color:var(--muted); font-size:1.15rem; max-width:640px; margin:0 auto 36px}
+  .cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+  .btn{
+    padding:12px 22px; border-radius:8px; font-weight:600; font-size:.95rem;
+    border:1px solid var(--border); display:inline-block;
+  }
+  .btn.primary{background:var(--text); color:#0b0b0d; border-color:var(--text)}
+  .btn.primary:hover{opacity:.9; text-decoration:none}
+  .btn.ghost{color:var(--text)}
+  .btn.ghost:hover{border-color:var(--muted); text-decoration:none}
+  .note{color:var(--muted); font-size:.85rem; margin-top:14px}
+  section{padding:56px 0; border-top:1px solid var(--border)}
+  h2{font-size:1.5rem; margin:0 0 8px}
+  .sub{color:var(--muted); margin:0 0 32px}
+  .shot{
+    width:100%; border-radius:10px; border:1px solid var(--border);
+    box-shadow:0 8px 30px rgba(0,0,0,.35); margin-bottom:14px;
+  }
+  .shots{display:grid; gap:40px}
+  .shot-block h3{margin:0 0 6px; font-size:1.05rem}
+  .shot-block p{color:var(--muted); margin:0 0 14px; font-size:.95rem}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:24px}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px}
+  .card h3{margin:0 0 8px; font-size:1.02rem}
+  .card p{margin:0; color:var(--muted); font-size:.92rem}
+  table{width:100%; border-collapse:collapse; font-size:.92rem}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--border)}
+  th{color:var(--muted); font-weight:600}
+  footer{padding:48px 0 80px; text-align:center; color:var(--muted); font-size:.9rem}
+  footer a{color:var(--muted)}
+  code{background:var(--surface); padding:2px 6px; border-radius:4px; font-size:.9em}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span><span>GHOSTLOG</span></div>
+    <h1>A dev-notes tool that never phones home.</h1>
+    <p class="tagline">
+      Ghostlog watches the projects you point it at — commits, failed shell commands,
+      moments you flag in a localhost tab — and turns them into a running, searchable
+      log of what happened and why. Free, open-source, local-first. No account, no cloud, no telemetry.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/delvrge/GHLG/releases/latest">Download for macOS</a>
+      <a class="btn ghost" href="https://github.com/delvrge/GHLG">View source on GitHub</a>
+    </div>
+    <p class="note">Windows/Linux planned · Always links to the latest release</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>What it captures</h2>
+    <p class="sub">Zero manual note-taking required for most of it.</p>
+    <table>
+      <tr><th>Trigger</th><th>How it fires</th></tr>
+      <tr><td>File changes</td><td>A filesystem watcher on each watched project (git repos only) picks up meaningful edits as you work.</td></tr>
+      <tr><td>Git commits</td><td>A post-commit hook calls Ghostlog's CLI mode, which reads the commit diff and drafts an entry.</td></tr>
+      <tr><td>Shell errors</td><td>An optional shell hook captures the command and exit code whenever a terminal command fails.</td></tr>
+      <tr><td>Browser events</td><td>A companion browser extension can flag a moment on a localhost tab — e.g. a console error — optionally attaching a screenshot.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>See it in action</h2>
+    <p class="sub">Home → Archive → Curate → Compile.</p>
+    <div class="shots">
+      <div class="shot-block">
+        <h3>Home</h3>
+        <p>The tray-owned review window: watch status, one-click manual capture per project, and the most recent capture.</p>
+        <img class="shot" src="screenshots/home.png" alt="Ghostlog Home screen" />
+      </div>
+      <div class="shot-block">
+        <h3>Archive</h3>
+        <p>Every session, browsable by date and searchable across all entries by title, tag, or summary text.</p>
+        <img class="shot" src="screenshots/archive.png" alt="Ghostlog Archive screen" />
+      </div>
+      <div class="shot-block">
+        <h3>Settings → AI provider</h3>
+        <p>Point Ghostlog at a local llama.cpp server. Nothing is sent anywhere until you set this; leave it blank to keep using mock summaries.</p>
+        <img class="shot" src="screenshots/settings-ai-provider.png" alt="Ghostlog Settings AI provider panel" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Why local-first</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Zero network ports</h3>
+        <p>Frontend ↔ backend is Tauri IPC. App ↔ browser extension is Native Messaging over stdio — not reachable by any webpage.</p>
+      </div>
+      <div class="card">
+        <h3>No cloud, no telemetry</h3>
+        <p>Ghostlog doesn't know you exist. AI drafting is bring-your-own: point Settings at a local model server, or leave it unset.</p>
+      </div>
+      <div class="card">
+        <h3>Path scoping in Rust</h3>
+        <p>Watched folders must be the root of a git repository — validated server-side, never trusted to the UI.</p>
+      </div>
+      <div class="card">
+        <h3>One folder, no hidden state</h3>
+        <p>Compiled documents, screenshots, session data — everything lands where you choose, nothing scattered across the filesystem.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Free and fully open-source. No pro tier, no paywall.</p>
+    <p><a href="https://github.com/delvrge/GHLG">github.com/delvrge/GHLG</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
