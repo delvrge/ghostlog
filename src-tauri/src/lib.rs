@@ -12,6 +12,7 @@ mod watcher;
 use state::AppState;
 use std::io::{Read, Write};
 use std::path::Path;
+use tauri::Manager;
 
 /// Entry point for the `--ghlg-git-commit <repo>` CLI mode (see main.rs).
 /// Runs on a small dedicated runtime since this path is a bare subprocess
@@ -93,8 +94,26 @@ pub fn run() {
         .manage(AppState::default())
         .setup(|app| {
             tray::init(app.handle())?;
+            // Capture data (entries, screenshots) lives in a user-visible
+            // folder, not the hidden OS app-data dir the static asset-scope
+            // config in tauri.conf.json points at — grant it at runtime
+            // (data_root() also handles first-run default + migration off
+            // the old hidden location).
+            let data_root = storage::data_root()?;
+            let _ = app.asset_protocol_scope().allow_directory(&data_root, true);
             // Restore the previously chosen watched folder, if any.
             storage::load_config(app.handle());
+            // Re-stamp the git-commit hook in every watched repo with
+            // wherever THIS exe actually is. Idempotent, so it's cheap to
+            // run on every launch — and it's the only thing that catches a
+            // hook left pointing at a previous install location (e.g. a
+            // mounted DMG that's since been ejected) before it silently
+            // drops every commit capture in that repo.
+            {
+                let state = app.state::<AppState>();
+                let paths = state.watched_paths.lock().unwrap().clone();
+                storage::refresh_git_hooks(&paths);
+            }
             // Watching starts automatically: combined with launch-at-login
             // the app is "perpetually on" — no start button to remember.
             if let Err(e) = watcher::start(app.handle()) {
@@ -103,10 +122,13 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Closing the review window hides it; the app lives in the tray.
+            // Closing the review window hides it and keeps the app running
+            // in the tray, unless the user turned that off in Settings.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
-                api.prevent_close();
+                if storage::run_in_background_enabled() {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -140,6 +162,10 @@ pub fn run() {
             commands::get_output_folder,
             commands::set_output_folder,
             commands::export_document,
+            commands::get_run_in_background,
+            commands::set_run_in_background,
+            commands::get_data_root,
+            commands::set_data_root,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -67,10 +67,17 @@ pub fn add_watched_folder(app: AppHandle, path: String) -> Result<(), String> {
                 ));
             }
         }
-        paths.push(canonical);
+        paths.push(canonical.clone());
         paths.clone()
     };
     storage::save_config(&snapshot)?;
+    // The git-commit trigger applies to every watched repo — a project
+    // added after the toggle was flipped on must get the hook too, not
+    // silently go uncovered until someone happens to retoggle it.
+    if storage::is_git_hook_enabled_setting() {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        storage::install_git_hook(&canonical, &exe)?;
+    }
 
     // If we're mid-watch, pick the new folder up immediately.
     if state.watch_state.lock().unwrap().state == WatchState::Watching {
@@ -241,20 +248,19 @@ pub fn delete_session(
 
 // ---- Settings: git-commit trigger ----
 
-/// The commit trigger applies to every watched repo: enabled means the
-/// hook is installed in all of them.
+/// The commit trigger applies to every watched repo. Backed by a persisted
+/// setting rather than inferred from each repo's hook file — inferring from
+/// the filesystem missed projects added after the toggle was last flipped,
+/// and never noticed a hook path going stale after the app binary moved.
 #[tauri::command]
-pub fn is_git_hook_enabled(state: State<AppState>) -> Result<bool, String> {
-    let paths = state.watched_paths.lock().unwrap();
-    Ok(!paths.is_empty() && paths.iter().all(|p| storage::is_git_hook_installed(p)))
+pub fn is_git_hook_enabled() -> bool {
+    storage::is_git_hook_enabled_setting()
 }
 
 #[tauri::command]
 pub fn set_git_hook_enabled(state: State<AppState>, enabled: bool) -> Result<(), String> {
+    storage::set_git_hook_enabled_setting(enabled)?;
     let paths = state.watched_paths.lock().unwrap().clone();
-    if paths.is_empty() {
-        return Err("No watched folder configured".into());
-    }
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     for repo in &paths {
         if enabled {
@@ -264,6 +270,18 @@ pub fn set_git_hook_enabled(state: State<AppState>, enabled: bool) -> Result<(),
         }
     }
     Ok(())
+}
+
+// ---- Settings: run in background ----
+
+#[tauri::command]
+pub fn get_run_in_background() -> bool {
+    storage::run_in_background_enabled()
+}
+
+#[tauri::command]
+pub fn set_run_in_background(enabled: bool) -> Result<(), String> {
+    storage::set_run_in_background_setting(enabled)
 }
 
 /// Extension connection status. Live handshake detection would need the
@@ -337,6 +355,32 @@ pub fn set_ai_config(
 #[tauri::command]
 pub async fn ai_compile(entries: Vec<String>) -> String {
     crate::ai::compile_document(&entries).await
+}
+
+// ---- Settings: capture data folder ----
+// Where entries/screenshots are actually stored — a visible, user-chosen
+// folder (defaults to ~/Desktop/Ghostlog Data) rather than the hidden OS
+// app-data directory, so it's obvious in Finder that captures never leave
+// the machine. Separate from the output folder below, which is only for
+// explicitly-exported compiled documents.
+
+#[tauri::command]
+pub fn get_data_root() -> Result<String, String> {
+    storage::data_root().map(|p| p.display().to_string())
+}
+
+#[tauri::command]
+pub fn set_data_root(app: AppHandle, path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    let canonical = p.canonicalize().map_err(|e| format!("Cannot access folder: {e}"))?;
+    if !canonical.is_dir() {
+        return Err("Selected path is not a directory".into());
+    }
+    let old_root = storage::data_root()?;
+    storage::relocate_project_dirs(&old_root, &canonical)?;
+    storage::set_data_root_setting(&canonical)?;
+    let _ = app.asset_protocol_scope().allow_directory(&canonical, true);
+    Ok(())
 }
 
 // ---- Settings: output folder + export ----

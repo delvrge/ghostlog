@@ -176,12 +176,22 @@ fn strip_code_fence(s: &str) -> String {
     rest.trim_start_matches('\n').trim_end().trim_end_matches("```").trim().to_string()
 }
 
+/// Small local models occasionally double-escape newlines inside the JSON
+/// string value (writing the two literal characters `\` `n` where valid
+/// JSON would need just `\n` to produce a real newline) — that survives
+/// strict `serde_json` parsing as-is, since it's a completely valid, if
+/// unwanted, two-character string. Left alone, entries render with visible
+/// `\n` text instead of line breaks.
+fn unescape_stray_newlines(s: &str) -> String {
+    s.replace("\\n", "\n").replace("\\t", "\t")
+}
+
 fn normalize(d: RawDraft) -> EntryDraft {
     let tag = match d.tag.as_str() {
         "bugfix" | "feature" => d.tag,
         _ => "update".to_string(),
     };
-    EntryDraft { tag, title: d.title, summary: d.summary }
+    EntryDraft { tag, title: d.title, summary: unescape_stray_newlines(&d.summary) }
 }
 
 /// Pulls tag/title/summary out of a near-JSON reply that failed strict
@@ -200,6 +210,7 @@ fn heuristic_extract(text: &str) -> Option<EntryDraft> {
     let body = after_colon.trim_end_matches(['}', '`']).trim();
     let body = body.strip_prefix(['>', '|']).unwrap_or(body);
     let body = body.trim().trim_matches('"');
+    let body = unescape_stray_newlines(body);
     let summary = body
         .lines()
         .map(|l| {

@@ -57,6 +57,7 @@ export default function Settings({
   const [gitHook, setGitHook] = useState(false);
   const [shellHook, setShellHook] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
+  const [runInBackground, setRunInBackgroundState] = useState(true);
   const [theme, setTheme] = useState<Theme>(getTheme());
   const [extensionStatus, setExtensionStatus] = useState<"connected" | "disconnected">("disconnected");
   const [nativeHostInstalled, setNativeHostInstalled] = useState(false);
@@ -70,10 +71,13 @@ export default function Settings({
   const [aiSaved, setAiSaved] = useState(false);
 
   const [outputFolder, setOutputFolder] = useState<string | null>(null);
+  const [dataRoot, setDataRoot] = useState<string | null>(null);
 
   useEffect(() => {
     invoke<boolean>("is_git_hook_enabled").then(setGitHook).catch(() => {});
     invoke<boolean>("is_shell_hook_installed").then(setShellHook).catch(() => {});
+    invoke<boolean>("get_run_in_background").then(setRunInBackgroundState).catch(() => {});
+    invoke<string>("get_data_root").then(setDataRoot).catch(() => {});
     autostartEnabled().then(setLaunchAtLogin).catch(() => {});
     invoke<string>("get_extension_status").then((s) => setExtensionStatus(s as "connected" | "disconnected"));
     invoke<boolean>("is_native_host_installed").then(setNativeHostInstalled).catch(() => {});
@@ -88,6 +92,18 @@ export default function Settings({
     });
     invoke<string | null>("get_output_folder").then(setOutputFolder);
   }, []);
+
+  async function chooseDataRoot() {
+    setError(null);
+    const selection = await open({ directory: true, multiple: false, title: "Choose where Ghostlog stores captured entries and screenshots" });
+    if (typeof selection !== "string") return;
+    try {
+      await invoke("set_data_root", { path: selection });
+      setDataRoot(selection);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
 
   async function chooseOutputFolder() {
     setError(null);
@@ -157,6 +173,17 @@ export default function Settings({
     setTheme(next);
   }
 
+  async function toggleRunInBackground() {
+    setError(null);
+    const next = !runInBackground;
+    try {
+      await invoke("set_run_in_background", { enabled: next });
+      setRunInBackgroundState(next);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   async function toggleLaunchAtLogin() {
     setError(null);
     try {
@@ -221,6 +248,26 @@ export default function Settings({
         <p className="text-xs text-fg-faint mt-1.5">
           Each entry must be the root folder of a git repository. Sessions are archived per
           project; removing a project here stops watching it but keeps its archive.
+        </p>
+      </section>
+
+      <section>
+        <h2 className="text-xs text-fg-faint uppercase tracking-wide mb-2">Capture data folder</h2>
+        <div className="bg-panel border border-edge rounded-lg px-4 py-3 flex items-center justify-between gap-4">
+          <span className="font-mono text-sm break-all text-fg-muted">
+            {dataRoot ?? "Loading…"}
+          </span>
+          <button
+            onClick={chooseDataRoot}
+            className="shrink-0 text-xs text-fg-muted hover:text-fg border border-edge-strong hover:border-fg-muted px-3 py-1.5 rounded-md transition-colors"
+          >
+            Change
+          </button>
+        </div>
+        <p className="text-xs text-fg-faint mt-1.5">
+          Every entry, note, and screenshot Ghostlog captures — for every project — lives here as
+          plain files, organized project / date / session. Nothing here ever leaves this folder;
+          changing it moves your existing history to the new location.
         </p>
       </section>
 
@@ -346,6 +393,12 @@ export default function Settings({
           </Row>
           <Row title="Launch at login">
             <Toggle checked={launchAtLogin} onChange={toggleLaunchAtLogin} />
+          </Row>
+          <Row
+            title="Run in background"
+            description="Closing the window keeps Ghostlog watching in the tray instead of quitting — use the tray menu's Quit to actually exit"
+          >
+            <Toggle checked={runInBackground} onChange={toggleRunInBackground} />
           </Row>
           <Row title="Version">
             <span className="text-sm font-mono text-fg-muted">{version}</span>

@@ -65,6 +65,57 @@ fn write_config(cfg: &serde_json::Value) -> Result<(), String> {
     fs::write(config_path()?, serde_json::to_string_pretty(cfg).unwrap()).map_err(|e| e.to_string())
 }
 
+/// Where captured project data (entries, screenshots) actually lives —
+/// deliberately NOT the hidden OS app-data directory, so a user can open it
+/// in Finder and see for themselves that everything is a plain local
+/// folder, nothing phoned home. `config.json` itself still lives in
+/// `app_data_root()`; this is only the root captures are written under.
+/// Defaults to `~/Desktop/Ghostlog Data` the first time this is read after
+/// upgrading, migrating any project folders already captured under the old
+/// hidden location so existing history isn't orphaned.
+pub fn data_root() -> Result<PathBuf, String> {
+    let cfg = read_config();
+    if let Some(p) = cfg.get("dataRoot").and_then(|v| v.as_str()) {
+        return Ok(PathBuf::from(p));
+    }
+    let default_root = dirs::desktop_dir()
+        .ok_or("Cannot resolve Desktop directory")?
+        .join("Ghostlog Data");
+    fs::create_dir_all(&default_root).map_err(|e| e.to_string())?;
+    relocate_project_dirs(&app_data_root()?, &default_root)?;
+    set_data_root_setting(&default_root)?;
+    Ok(default_root)
+}
+
+pub fn set_data_root_setting(path: &Path) -> Result<(), String> {
+    let mut cfg = read_config();
+    cfg["dataRoot"] = serde_json::json!(path.display().to_string());
+    write_config(&cfg)
+}
+
+/// Moves every project subfolder from `old_root` into `new_root` (skips
+/// `config.json` and anything already present at the destination — never
+/// clobbers). Used both for the one-time migration off the hidden app-data
+/// directory and whenever the user picks a different folder in Settings.
+pub fn relocate_project_dirs(old_root: &Path, new_root: &Path) -> Result<(), String> {
+    if !old_root.is_dir() || old_root == new_root {
+        return Ok(());
+    }
+    fs::create_dir_all(new_root).map_err(|e| e.to_string())?;
+    for entry in fs::read_dir(old_root).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        if !entry.path().is_dir() {
+            continue; // skip config.json
+        }
+        let dest = new_root.join(entry.file_name());
+        if dest.exists() {
+            continue;
+        }
+        fs::rename(entry.path(), &dest).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 pub fn load_config(app: &tauri::AppHandle) {
     use tauri::Manager;
     let state = app.state::<crate::state::AppState>();
@@ -191,7 +242,7 @@ pub fn export_document(filename: &str, content: &str) -> Result<String, String> 
 }
 
 fn project_root(project: &str) -> Result<PathBuf, String> {
-    Ok(app_data_root()?.join(project))
+    Ok(data_root()?.join(project))
 }
 
 /// Project name = final component of the watched folder path.
@@ -522,6 +573,50 @@ fn hook_path(repo: &Path) -> PathBuf {
 
 pub fn is_git_hook_installed(repo: &Path) -> bool {
     fs::read_to_string(hook_path(repo)).is_ok_and(|s| s.contains(HOOK_MARKER))
+}
+
+/// Whether the git-commit trigger is turned on, persisted independently of
+/// any single repo's hook file. Filesystem state (`is_git_hook_installed`)
+/// used to be the only source of truth, which meant a project added after
+/// the toggle was last flipped silently never got the hook, and the hook's
+/// hardcoded exe path went stale the moment the app binary moved (e.g. out
+/// of a mounted DMG) with nothing to notice or fix it.
+pub fn is_git_hook_enabled_setting() -> bool {
+    read_config().get("gitHookEnabled").and_then(|v| v.as_bool()).unwrap_or(false)
+}
+
+pub fn set_git_hook_enabled_setting(enabled: bool) -> Result<(), String> {
+    let mut cfg = read_config();
+    cfg["gitHookEnabled"] = serde_json::json!(enabled);
+    write_config(&cfg)
+}
+
+/// Reinstalls the hook in every given repo using the CURRENTLY running
+/// exe's path, only if the trigger is enabled. Safe to call unconditionally
+/// on every launch and whenever a new project is added: `install_git_hook`
+/// overwrites idempotently, so this both fixes a stale path left over from
+/// a previous install and covers newly-added repos in one place.
+pub fn refresh_git_hooks(paths: &[PathBuf]) {
+    if !is_git_hook_enabled_setting() {
+        return;
+    }
+    let Ok(exe) = std::env::current_exe() else { return };
+    for repo in paths {
+        let _ = install_git_hook(repo, &exe);
+    }
+}
+
+/// Whether Ghostlog should stay running in the tray when the review window
+/// is closed, instead of quitting. Defaults to on — the whole point of the
+/// tray + watcher is to keep capturing without the window open.
+pub fn run_in_background_enabled() -> bool {
+    read_config().get("runInBackground").and_then(|v| v.as_bool()).unwrap_or(true)
+}
+
+pub fn set_run_in_background_setting(enabled: bool) -> Result<(), String> {
+    let mut cfg = read_config();
+    cfg["runInBackground"] = serde_json::json!(enabled);
+    write_config(&cfg)
 }
 
 pub fn install_git_hook(repo: &Path, exe_path: &Path) -> Result<(), String> {
