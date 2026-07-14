@@ -65,17 +65,19 @@
   .hero{position:relative}
   .why-local-first{position:relative}
   .decor{position:absolute; width:170px; pointer-events:none}
-  .decor-left-outer{left:40px; top:260px; opacity:0; animation:ghost-drift-in 11.6s linear infinite}
+  .decor-left-outer{left:40px; top:260px; opacity:0; animation:ghost-drift-in 71.6s linear infinite}
   .decor-left{width:100%; animation:ghost-bob 3.4s linear infinite}
   .decor-right{right:40px; top:60px; opacity:.92}
   @media (max-width:1200px){ .decor, .decor-left-outer{display:none} }
 
   @keyframes ghost-drift-in{
-    0%   { opacity:0; transform:translateX(-160px); }
-    10%  { opacity:1; }
-    40%  { opacity:1; transform:translateX(65px); }
-    83%  { opacity:1; transform:translateX(65px); }
-    100% { opacity:0; transform:translateX(65px); }
+    0%     { opacity:0; transform:translateX(-160px); }
+    1.6%   { opacity:1; }
+    6.5%   { opacity:1; transform:translateX(65px); }
+    13.5%  { opacity:1; transform:translateX(65px); }
+    16.2%  { opacity:0; transform:translateX(65px); }
+    99%    { opacity:0; transform:translateX(-160px); }
+    100%   { opacity:0; transform:translateX(-160px); }
   }
   @keyframes ghost-bob{
     0%,100%{ transform:translateY(0); }
