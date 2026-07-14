@@ -205,7 +205,7 @@ export default function Home({
             onClick={() => logNow(selectedProject)}
             className="bg-accent hover:bg-accent-dim text-white text-sm font-medium px-5 py-2 rounded-md transition-colors"
           >
-            {capturedFor === selectedProject ? "Captured" : `Log ${selectedProject}`}
+            {capturedFor === selectedProject ? "Captured" : "Log now"}
           </button>
         </div>
         <p className="text-xs text-fg-faint">
