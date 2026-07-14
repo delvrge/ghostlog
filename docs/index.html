@@ -145,7 +145,7 @@
       </a>
       <a class="btn ghost" href="https://github.com/delvrge/GHLG">View source on GitHub</a>
     </div>
-    <p class="note" id="version-note">Current version 0.1.0 · 1.0.0 coming soon</p>
+    <p class="note" id="version-note">Version 1.0.0</p>
   </div>
 </header>
 
@@ -234,16 +234,6 @@
     });
     const labels = { mac: 'Download for macOS', windows: 'Download for Windows', linux: 'Download for Linux' };
     document.getElementById('download-label').textContent = labels[os];
-
-    const versions = {
-      mac: { current: '0.1.0', next: '1.0.0' },
-      windows: { current: null, next: '1.0.0' },
-      linux: { current: null, next: '1.0.0' },
-    };
-    const v = versions[os];
-    document.getElementById('version-note').textContent = v.current
-      ? `Current version ${v.current} · ${v.next} coming soon`
-      : `Not released yet · ${v.next} coming soon`;
   })();
 </script>
 
