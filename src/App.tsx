@@ -5,23 +5,21 @@
  * archive screens are scoped to.
  */
 import { useEffect, useState, type ReactElement } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import Onboarding from "./screens/Onboarding";
 import Home from "./screens/Home";
 import Archive from "./screens/Archive";
-import SessionDetail from "./screens/SessionDetail";
 import Curate from "./screens/Curate";
 import Compile from "./screens/Compile";
 import Tasks from "./screens/Tasks";
 import Settings from "./screens/Settings";
 import { getWatchedFolders, type WatchedProject } from "./lib/watcher";
-import { setActiveProject } from "./lib/session";
 
 type View =
   | { name: "home" }
   | { name: "archive" }
-  | { name: "session"; date: string; sessionId: string }
-  | { name: "curate"; date: string; sessionId: string }
-  | { name: "compile"; date: string; sessionId: string }
+  | { name: "curate"; project: string; date: string; sessionId: string }
+  | { name: "compile"; project: string; date: string; sessionId: string }
   | { name: "tasks" }
   | { name: "settings" };
 
@@ -72,20 +70,32 @@ export default function App() {
     const list = await getWatchedFolders();
     setFolders(list);
     // Keep the selection if it still exists, else fall back to the first.
-    setProject((prev) => {
-      const next = list.some((f) => f.name === prev) ? prev : (list[0]?.name ?? "");
-      setActiveProject(next);
-      return next;
-    });
+    setProject((prev) => (list.some((f) => f.name === prev) ? prev : (list[0]?.name ?? "")));
   }
 
   useEffect(() => {
     refresh();
   }, []);
 
+  // Opt-in, best-effort: polls each watched project's session log for
+  // whichever terminal AI tool is selected in Settings (if any) for new
+  // human-typed prompts. No-ops instantly server-side when the source is
+  // "none", so it's cheap to just always run this rather than thread the
+  // setting through here too.
+  useEffect(() => {
+    if (!folders || folders.length === 0) return;
+    const poll = () => {
+      for (const f of folders) {
+        invoke("poll_agent_prompts", { project: f.name }).catch(() => {});
+      }
+    };
+    poll();
+    const id = setInterval(poll, 20_000);
+    return () => clearInterval(id);
+  }, [folders]);
+
   function switchProject(name: string) {
     setProject(name);
-    setActiveProject(name);
     // Archive-family views hold data from the old project; go home.
     if (view.name !== "home" && view.name !== "settings") setView({ name: "archive" });
   }
@@ -136,8 +146,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-ink text-fg font-sans flex">
       <nav
-        style={{ background: "linear-gradient(225deg, #6e0a0aff 0%, #f13a51ff 100%)" }}
-        className={`shrink-0 sticky top-0 h-screen p-4 flex flex-col gap-1 transition-[width] duration-200 overflow-hidden ${
+        className={`shrink-0 sticky top-0 h-screen p-4 flex flex-col gap-1 transition-[width] duration-200 overflow-hidden bg-accent ${
           navCollapsed ? "w-16 px-2" : "w-44"
         }`}
       >
@@ -178,23 +187,6 @@ export default function App() {
           </button>
         ))}
 
-        {!navCollapsed && folders.length > 1 && (
-          <div className="mt-4 px-3 space-y-1">
-            <p className="text-[10px] uppercase tracking-wide text-white/50">Project</p>
-            <select
-              value={project}
-              onChange={(e) => switchProject(e.target.value)}
-              className="w-full bg-black/25 text-white text-sm rounded-md px-2 py-1.5 border border-white/20 focus:outline-none"
-            >
-              {folders.map((f) => (
-                <option key={f.name} value={f.name} className="bg-ink text-fg">
-                  {f.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
         <div className="mt-auto pt-3">{navToggleButton}</div>
       </nav>
 
@@ -209,33 +201,26 @@ export default function App() {
         )}
         {view.name === "archive" && (
           <Archive
-            key={project}
-            onOpenSession={(date, sessionId) => setView({ name: "session", date, sessionId })}
-          />
-        )}
-        {view.name === "session" && (
-          <SessionDetail
-            date={view.date}
-            sessionId={view.sessionId}
-            onBack={() => setView({ name: "archive" })}
-            onCurate={() => setView({ name: "curate", date: view.date, sessionId: view.sessionId })}
-            onCompile={() =>
-              setView({ name: "compile", date: view.date, sessionId: view.sessionId })
-            }
+            folders={folders}
+            project={project}
+            onOpenCurate={(p, date, sessionId) => setView({ name: "curate", project: p, date, sessionId })}
+            onOpenCompile={(p, date, sessionId) => setView({ name: "compile", project: p, date, sessionId })}
           />
         )}
         {view.name === "curate" && (
           <Curate
+            project={view.project}
             date={view.date}
             sessionId={view.sessionId}
-            onDone={() => setView({ name: "session", date: view.date, sessionId: view.sessionId })}
+            onDone={() => setView({ name: "archive" })}
           />
         )}
         {view.name === "compile" && (
           <Compile
+            project={view.project}
             date={view.date}
             sessionId={view.sessionId}
-            onBack={() => setView({ name: "session", date: view.date, sessionId: view.sessionId })}
+            onBack={() => setView({ name: "archive" })}
           />
         )}
         {view.name === "tasks" && <Tasks selectedProject={project} />}

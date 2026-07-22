@@ -56,6 +56,7 @@ export default function Settings({
   const [manualTrigger, setManualTrigger] = useState(true);
   const [gitHook, setGitHook] = useState(false);
   const [shellHook, setShellHook] = useState(false);
+  const [agentCaptureSource, setAgentCaptureSource] = useState<"none" | "claude-code" | "codex">("none");
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [runInBackground, setRunInBackgroundState] = useState(true);
   const [theme, setTheme] = useState<Theme>(getTheme());
@@ -76,6 +77,7 @@ export default function Settings({
   useEffect(() => {
     invoke<boolean>("is_git_hook_enabled").then(setGitHook).catch(() => {});
     invoke<boolean>("is_shell_hook_installed").then(setShellHook).catch(() => {});
+    invoke<"none" | "claude-code" | "codex">("get_agent_capture_source").then(setAgentCaptureSource).catch(() => {});
     invoke<boolean>("get_run_in_background").then(setRunInBackgroundState).catch(() => {});
     invoke<string>("get_data_root").then(setDataRoot).catch(() => {});
     autostartEnabled().then(setLaunchAtLogin).catch(() => {});
@@ -162,6 +164,16 @@ export default function Settings({
       if (next) await invoke("install_shell_hook");
       else await invoke("uninstall_shell_hook");
       setShellHook(next);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function changeAgentCaptureSource(next: "none" | "claude-code" | "codex") {
+    setError(null);
+    try {
+      await invoke("set_agent_capture_source", { source: next });
+      setAgentCaptureSource(next);
     } catch (e) {
       setError(String(e));
     }
@@ -304,6 +316,20 @@ export default function Settings({
             description="Capture automatically when a terminal command fails — works no matter who runs the command, you or an AI tool"
           >
             <Toggle checked={shellHook} onChange={toggleShellHook} />
+          </Row>
+          <Row
+            title="Terminal AI-tool trigger (experimental)"
+            description="Reads your chosen tool's own local session log for this project and logs your typed prompts as notes — reverse-engineered from an undocumented format, so it can break silently if that tool changes it. Pick the one you actually use."
+          >
+            <select
+              value={agentCaptureSource}
+              onChange={(e) => changeAgentCaptureSource(e.target.value as "none" | "claude-code" | "codex")}
+              className="bg-panel-raised border border-edge-strong rounded px-2 py-1 text-xs focus:outline-none shrink-0"
+            >
+              <option value="none">— None —</option>
+              <option value="claude-code">Claude Code</option>
+              <option value="codex">Codex</option>
+            </select>
           </Row>
         </div>
       </section>

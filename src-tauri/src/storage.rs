@@ -65,6 +65,46 @@ fn write_config(cfg: &serde_json::Value) -> Result<(), String> {
     fs::write(config_path()?, serde_json::to_string_pretty(cfg).unwrap()).map_err(|e| e.to_string())
 }
 
+/// Small generic get/set helpers on top of config.json for one-off scalar
+/// settings (agent-capture cursors, etc.) that don't need their own struct.
+pub fn read_config_string(key: &str) -> Option<String> {
+    read_config().get(key).and_then(|v| v.as_str()).map(str::to_string)
+}
+
+pub fn write_config_string(key: &str, value: &str) -> Result<(), String> {
+    let mut cfg = read_config();
+    cfg[key] = serde_json::json!(value);
+    write_config(&cfg)
+}
+
+pub fn read_config_u64(key: &str) -> Option<u64> {
+    read_config().get(key).and_then(|v| v.as_u64())
+}
+
+pub fn write_config_u64(key: &str, value: u64) -> Result<(), String> {
+    let mut cfg = read_config();
+    cfg[key] = serde_json::json!(value);
+    write_config(&cfg)
+}
+
+/// Which single terminal AI tool (if any) Ghostlog reads local prompts
+/// from. One at a time by design — the user picks the tool they actually
+/// use, rather than toggling each on independently.
+/// Valid values: "none" (default), "claude-code", "codex".
+pub fn agent_capture_source() -> String {
+    read_config()
+        .get("agentCaptureSource")
+        .and_then(|v| v.as_str())
+        .unwrap_or("none")
+        .to_string()
+}
+
+pub fn set_agent_capture_source(source: &str) -> Result<(), String> {
+    let mut cfg = read_config();
+    cfg["agentCaptureSource"] = serde_json::json!(source);
+    write_config(&cfg)
+}
+
 /// Where captured project data (entries, screenshots) actually lives —
 /// deliberately NOT the hidden OS app-data directory, so a user can open it
 /// in Finder and see for themselves that everything is a plain local
@@ -307,20 +347,57 @@ pub fn list_sessions(project: &str, date: &str) -> Result<Vec<SessionMeta>, Stri
     Ok(sessions)
 }
 
-/// Create (or reuse) today's next session folder. Called when watching
-/// starts; entries within one watch period share a session.
+/// Removes every empty session folder (zero `entry-*.md` files — aborted
+/// captures, or leftovers from before sessions were collapsed to one per
+/// day) across every date for this project, then removes any date folder
+/// that's left with no sessions at all. Returns how many folders (sessions
+/// + dates) were removed, for a one-line confirmation in the UI. Entries
+/// with actual content are never touched.
+pub fn cleanup_empty(project: &str) -> Result<usize, String> {
+    let mut removed = 0;
+    for date in list_dates(project)? {
+        let dir = project_root(project)?.join(&date);
+        for session in list_sessions(project, &date)? {
+            if session.entry_count == 0 {
+                let sdir = dir.join(&session.session_id);
+                if fs::remove_dir_all(&sdir).is_ok() {
+                    removed += 1;
+                }
+            }
+        }
+        // Re-check after removing empty sessions above — if nothing real is
+        // left, the date folder itself is just clutter in the date list.
+        let still_has_sessions = fs::read_dir(&dir)
+            .map(|rd| rd.filter_map(|e| e.ok()).any(|e| e.path().is_dir()))
+            .unwrap_or(false);
+        if !still_has_sessions && fs::remove_dir_all(&dir).is_ok() {
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
+/// Deletes a date folder outright, entries and all — a deliberate, manual
+/// action (the per-date menu in the archive), unlike `cleanup_empty` which
+/// only ever touches folders that are already empty.
+pub fn delete_date(project: &str, date: &str) -> Result<(), String> {
+    if !is_date_dir(date) {
+        return Err("Invalid date".into());
+    }
+    let dir = project_root(project)?.join(date);
+    fs::remove_dir_all(&dir).map_err(|e| e.to_string())
+}
+
+/// Create (or reuse) today's single session folder, keyed on the user's
+/// local date (`chrono::Local`, i.e. the OS timezone). Watching can start
+/// and stop many times in a day (app relaunch, sleep/wake, folder-list
+/// changes) — all of that shares one folder per day instead of stamping
+/// out a new empty session on every restart.
 pub fn create_session(project: &str) -> Result<(String, String), String> {
     let date = chrono::Local::now().format("%Y-%m-%d").to_string();
-    let dir = project_root(project)?.join(&date);
+    let session_id = "session-01".to_string();
+    let dir = project_root(project)?.join(&date).join(&session_id);
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let next = list_sessions(project, &date)?
-        .iter()
-        .filter_map(|s| s.session_id.strip_prefix("session-")?.parse::<u32>().ok())
-        .max()
-        .unwrap_or(0)
-        + 1;
-    let session_id = format!("session-{next:02}");
-    fs::create_dir_all(dir.join(&session_id)).map_err(|e| e.to_string())?;
     Ok((date, session_id))
 }
 

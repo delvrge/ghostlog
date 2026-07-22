@@ -122,10 +122,15 @@ pub async fn summarize_capture(hint: &str, diff: Option<&str>) -> EntryDraft {
                   the note is thin or missing, say plainly that there isn't enough \
                   information, do not guess or fabricate a plausible-sounding story. Reply \
                   with ONLY a JSON object with exactly these keys:\n\
-                  \"tag\": one of \"bugfix\", \"update\", \"feature\".\n\
+                  \"tag\": one of \"bugfix\", \"feature\", \"refactor\", \"performance\", \
+                  \"ui\", \"configuration\", \"experiment\", \"decision\", \"question\", \
+                  \"note\", \"update\" (use \"update\" only when nothing else fits).\n\
                   \"title\": a short one-line title, under 60 characters.\n\
-                  \"summary\": a markdown string with these sections, each 1-3 sentences, \
-                  omitting a section only if it genuinely doesn't apply:\n\
+                  \"summary\": a markdown string, each section 1-3 sentences, omitting a \
+                  section only if it genuinely doesn't apply. If tag is \"decision\", use:\n\
+                  \"**Decision:** what was decided, stated plainly.\n\
+                  \"**Reason:** why, inferred ONLY from the diff or note.\n\
+                  For every other tag, use:\n\
                   \"**Problem:** what was broken or missing, inferred ONLY from the diff.\n\
                   \"**Fix:** what the diff actually changed to address it.\n\
                   \"**Reasoning:** the likely thought process behind that specific fix.\n\
@@ -186,11 +191,13 @@ fn unescape_stray_newlines(s: &str) -> String {
     s.replace("\\n", "\n").replace("\\t", "\t")
 }
 
+const VALID_TAGS: &[&str] = &[
+    "bugfix", "feature", "refactor", "performance", "ui", "configuration",
+    "experiment", "decision", "question", "note", "update",
+];
+
 fn normalize(d: RawDraft) -> EntryDraft {
-    let tag = match d.tag.as_str() {
-        "bugfix" | "feature" => d.tag,
-        _ => "update".to_string(),
-    };
+    let tag = if VALID_TAGS.contains(&d.tag.as_str()) { d.tag } else { "update".to_string() };
     EntryDraft { tag, title: d.title, summary: unescape_stray_newlines(&d.summary) }
 }
 
@@ -199,7 +206,7 @@ fn normalize(d: RawDraft) -> EntryDraft {
 /// instead of a quoted JSON string. Only used when serde_json gives up.
 fn heuristic_extract(text: &str) -> Option<EntryDraft> {
     let tag = extract_quoted_value(text, "tag")
-        .filter(|t| ["bugfix", "update", "feature"].contains(&t.as_str()))
+        .filter(|t| VALID_TAGS.contains(&t.as_str()))
         .unwrap_or_else(|| "update".to_string());
     let title = extract_quoted_value(text, "title")?;
 

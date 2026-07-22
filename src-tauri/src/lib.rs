@@ -2,6 +2,7 @@
 //! Zero network ports by design — all frontend communication is Tauri IPC,
 //! all extension communication will be Native Messaging (stdio).
 
+mod agents;
 mod ai;
 mod commands;
 mod state;
@@ -204,6 +205,8 @@ pub fn run() {
             commands::update_entry,
             commands::delete_entry,
             commands::delete_session,
+            commands::cleanup_empty,
+            commands::delete_date,
             commands::is_git_hook_enabled,
             commands::set_git_hook_enabled,
             commands::get_extension_status,
@@ -213,6 +216,9 @@ pub fn run() {
             commands::is_shell_hook_installed,
             commands::install_shell_hook,
             commands::uninstall_shell_hook,
+            commands::get_agent_capture_source,
+            commands::set_agent_capture_source,
+            commands::poll_agent_prompts,
             commands::get_ai_config,
             commands::set_ai_config,
             commands::ai_compile,

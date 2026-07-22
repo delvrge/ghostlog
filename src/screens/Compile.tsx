@@ -24,10 +24,12 @@ function weekStart(date: string): string {
 }
 
 export default function Compile({
+  project,
   date,
   sessionId,
   onBack,
 }: {
+  project: string;
   date: string;
   sessionId: string;
   onBack: () => void;
@@ -45,11 +47,11 @@ export default function Compile({
     try {
       const markdowns: string[] = [];
       if (nextScope === "session") {
-        const entries = await readSession(date, sessionId);
+        const entries = await readSession(project, date, sessionId);
         markdowns.push(...entries.map((e) => `## ${e.title}\n\n${e.summary}`));
       } else if (nextScope === "day") {
-        for (const s of await listSessions(date)) {
-          const entries = await readSession(date, s.sessionId);
+        for (const s of await listSessions(project, date)) {
+          const entries = await readSession(project, date, s.sessionId);
           markdowns.push(...entries.map((e) => `## ${e.title}\n\n${e.summary}`));
         }
       } else {
@@ -57,12 +59,12 @@ export default function Compile({
         // carry their date so the model can keep the chronology straight
         // when entries span several days.
         const from = weekStart(date);
-        const weekDates = (await listDates())
+        const weekDates = (await listDates(project))
           .filter((d) => d >= from && d <= date)
           .sort();
         for (const d of weekDates) {
-          for (const s of await listSessions(d)) {
-            const entries = await readSession(d, s.sessionId);
+          for (const s of await listSessions(project, d)) {
+            const entries = await readSession(project, d, s.sessionId);
             markdowns.push(
               ...entries.map((e) => `## [${d}] ${e.title}\n\n${e.summary}`),
             );

@@ -19,8 +19,8 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export interface EntryDraft {
-  /** e.g. "bugfix" | "update" | "feature" — auto-tag guess. */
-  tag: "bugfix" | "update" | "feature";
+  /** Auto-tag guess — see SessionEntry["tag"] in src/lib/session.ts for the full set. */
+  tag: import("./session").SessionEntry["tag"];
   title: string;
   summary: string;
 }

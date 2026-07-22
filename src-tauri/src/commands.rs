@@ -246,6 +246,20 @@ pub fn delete_session(
     storage::delete_session(&project, &date, &session_id)
 }
 
+/// Sweeps every empty session/date folder for this project — "Flush empty"
+/// in the Archive. Returns how many were removed.
+#[tauri::command]
+pub fn cleanup_empty(project: String) -> Result<usize, String> {
+    storage::cleanup_empty(&project)
+}
+
+/// Deletes a whole date's folder outright — the per-date menu's Delete
+/// action, regardless of whether it's empty.
+#[tauri::command]
+pub fn delete_date(project: String, date: String) -> Result<(), String> {
+    storage::delete_date(&project, &date)
+}
+
 // ---- Settings: git-commit trigger ----
 
 /// The commit trigger applies to every watched repo. Backed by a persisted
@@ -307,6 +321,57 @@ pub fn install_native_host() -> Result<(), String> {
 #[tauri::command]
 pub fn uninstall_native_host() -> Result<(), String> {
     storage::uninstall_native_host()
+}
+
+// ---- Terminal AI-tool prompt capture (opt-in, one source at a time) ----
+
+#[tauri::command]
+pub fn get_agent_capture_source() -> String {
+    storage::agent_capture_source()
+}
+
+#[tauri::command]
+pub fn set_agent_capture_source(source: String) -> Result<(), String> {
+    storage::set_agent_capture_source(&source)
+}
+
+/// Polls whichever terminal tool is selected in Settings (if any) for this
+/// project's local session transcript, and logs any new human-typed
+/// prompts as `note` entries. No-op, not an error, when the source is
+/// "none", no transcript is found, or nothing new showed up — this runs on
+/// a frontend timer and must never surface a noisy failure for something
+/// this best-effort.
+#[tauri::command]
+pub async fn poll_agent_prompts(state: State<'_, AppState>, project: String) -> Result<usize, String> {
+    let source = storage::agent_capture_source();
+    let root = repo_for_project(&state, &project)?;
+    let prompts = match source.as_str() {
+        "claude-code" => crate::agents::poll_claude_code(&project, &root)?,
+        "codex" => crate::agents::poll_codex(&project, &root)?,
+        _ => return Ok(0),
+    };
+    if prompts.is_empty() {
+        return Ok(0);
+    }
+
+    let (date, session_id) = {
+        let mut cur = state.current_sessions.lock().unwrap();
+        match cur.get(&project).cloned() {
+            Some(s) => s,
+            None => {
+                let s = storage::create_session(&project)?;
+                cur.insert(project.clone(), s.clone());
+                s
+            }
+        }
+    };
+
+    let count = prompts.len();
+    for prompt in prompts {
+        let title = prompt.chars().take(60).collect::<String>();
+        storage::write_entry(&project, &date, &session_id, "note", &title, &prompt, None)?;
+    }
+    Ok(count)
 }
 
 /// "Guaranteed" auto-capture trigger: installs a small marked block into

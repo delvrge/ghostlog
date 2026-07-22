@@ -7,10 +7,12 @@ import TagBadge from "../components/TagBadge";
 import { readSession, deleteEntry, type SessionEntry } from "../lib/session";
 
 export default function Curate({
+  project,
   date,
   sessionId,
   onDone,
 }: {
+  project: string;
   date: string;
   sessionId: string;
   onDone: () => void;
@@ -20,11 +22,11 @@ export default function Curate({
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    readSession(date, sessionId).then((es) => {
+    readSession(project, date, sessionId).then((es) => {
       setEntries(es);
       setKept(new Set(es.map((e) => e.id))); // default: keep everything
     });
-  }, [date, sessionId]);
+  }, [project, date, sessionId]);
 
   function toggle(id: string) {
     const next = new Set(kept);
@@ -37,7 +39,7 @@ export default function Curate({
 
   async function discardRest() {
     for (const e of entries) {
-      if (!kept.has(e.id)) await deleteEntry(date, sessionId, e.id);
+      if (!kept.has(e.id)) await deleteEntry(project, date, sessionId, e.id);
     }
     onDone();
   }
